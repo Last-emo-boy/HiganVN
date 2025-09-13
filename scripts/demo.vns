@@ -1,0 +1,27 @@
+> BG bg/教室.png
+> BGM bgm/校园白日.mp3 0.8
+
+黄昏的风吹过天台，课本的纸角翻起。
+
+张鹏 「今天放学后一起去天台吗？」
+小马 「我在想……也许去图书馆更好？」
+
+? 去天台 -> go_rooftop
+? 去图书馆 -> go_library
+
+*go_rooftop
+  > BG bg/天台_夜.webp
+  > EF slide_in_l 张鹏 420
+  张鹏|学长 (happy)「风很大，注意安全。」
+  小马 [灰](angry)「我才没有怕风！」
+  > SE se/开门.wav
+  ? 回教室 -> back_class
+
+*go_library
+  > BG bg/教室.png
+  小马 (smile)「借几本工具书吧，张鹏。」
+  张鹏 [惊]「啊？」
+  张鹏 (think)「那就从数据结构开始？」
+
+*back_class
+  ♪ None

@@ -1,0 +1,32 @@
+Backlog (Editor)
+
+Phase 0 – Foundations
+- [ ] Create minimal PySide6 app skeleton (window, menu, tabs)
+- [ ] Define .higanproj loader/saver (JSON)
+- [ ] Add Project: New/Open dialog; persist recent files
+- [ ] Wire strict-parse on-demand for open .vns (parse once, display count)
+
+Phase 1 – Editing & Validation
+- [ ] Implement VNS syntax highlighter (ops, args, strings, comments)
+- [ ] Add Problems panel; show diagnostics from parser
+- [ ] Outline panel: labels, jumps, choices
+- [ ] Export command to `editor/out/` (non-destructive)
+
+Phase 2 – Assets & Graph
+- [ ] Assets panel: browse `assets/<namespace>` with filters (bg, ch, bgm, se)
+- [ ] Graph view: build nodes/edges from Program; click to navigate
+- [ ] Inspector: edit op arguments with form widgets
+
+Phase 3 – Preview & Tools
+- [ ] Headless preview snapshot for current line
+- [ ] External Run in pygame at cursor/IP
+- [ ] Generate slot thumbnails tool
+
+Quality & Packaging
+- [ ] Logging and error dialog
+- [ ] Settings (font size, theme, paths)
+- [ ] PyInstaller packaging for the editor
+
+Notes
+- Keep all writes under `editor/out/` unless user picks a separate folder.
+- Never modify project files outside `editor/` during export.

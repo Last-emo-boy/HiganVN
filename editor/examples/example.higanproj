@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "Demo",
+  "id": "demo",
+  "scripts": [
+    "scripts/demo.vns"
+  ],
+  "assetsNamespace": "demo",
+  "metadataPath": "scripts/demo.vns.meta.json",
+  "outputDir": "editor/out",
+  "settings": {
+    "strict": true,
+    "fontSize": 28
+  }
+}

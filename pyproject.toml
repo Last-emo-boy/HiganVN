@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "higanvn"
+version = "0.0.1"
+description = "HiganVN: A lightweight OOP visual novel engine with a natural DSL"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "SEU-monogatari" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "mypy>=1.10",
+  "ruff>=0.5.0",
+]
+pygame = [
+  "pygame>=2.5.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["."]
+
+[project.scripts]
+higanvn = "higanvn.cli:main"
