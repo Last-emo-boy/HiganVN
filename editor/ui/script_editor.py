@@ -76,3 +76,11 @@ class ScriptEditor(QPlainTextEdit):
             cursor.movePosition(cursor.MoveOperation.Down)
         self.setTextCursor(cursor)
         self.centerCursor()
+
+    def current_line(self) -> int:
+        try:
+            cursor = self.textCursor()
+            # blockNumber is 0-indexed; return 1-indexed
+            return int(cursor.blockNumber()) + 1
+        except Exception:
+            return 1

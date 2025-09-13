@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Iterable, List, Optional, Dict, Any, Tuple
 
 from .renderer import IRenderer, DummyRenderer
+from .adapters.storage import ISaveStore, FileSaveStore
 from .event_bus import EventBus
 from ..script.parser import parse_script
 from ..script.model import Op, Program
@@ -22,7 +23,8 @@ import re
 
 
 class Engine:
-    def __init__(self, renderer: Optional[IRenderer] = None, interactive: bool = False, strict: bool = False) -> None:
+    def __init__(self, renderer: Optional[IRenderer] = None, interactive: bool = False, strict: bool = False,
+                 save_store: Optional[ISaveStore] = None) -> None:
         self.program = None
         self.ip = 0
         self.renderer = renderer or DummyRenderer()
@@ -52,6 +54,11 @@ class Engine:
         self._switch_active = False
         self._switch_value = None
         self._switch_matched = False
+        # pluggable save store (defaults to file-based under Documents/HiganVN/<game>)
+        try:
+            self._save_store = save_store or FileSaveStore(lambda: self.get_save_dir())
+        except Exception:
+            self._save_store = None
 
     def load(self, program: Program) -> None:
         self.program = program
@@ -676,13 +683,18 @@ class Engine:
         try:
             if not self.program:
                 return False
-            sp = save_path or (self.get_save_dir() / "quick.json")
-            sp.parent.mkdir(parents=True, exist_ok=True)
             # try to infer current label name from last label entered
             try:
                 cur_label = getattr(self.renderer, "_current_label", None)
             except Exception:
                 cur_label = None
+            # collect renderer snapshot if available
+            snapshot = None
+            try:
+                if hasattr(self.renderer, "get_snapshot") and callable(getattr(self.renderer, "get_snapshot")):
+                    snapshot = self.renderer.get_snapshot()  # type: ignore[attr-defined]
+            except Exception:
+                snapshot = None
             payload = {
                 "script": str(self.script_path) if self.script_path else None,
                 "ip": self.ip,
@@ -692,21 +704,37 @@ class Engine:
                 # include variable store
                 "vars": self.vars,
                 "label": cur_label,
+                # optional snapshot for fast restore
+                "snapshot": snapshot,
+                "version": 2,
             }
-            sp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            return True
+            # Prefer injected save store; fall back to legacy file path when explicit path provided
+            if self._save_store and save_path is None:
+                return bool(self._save_store.write_quick(payload))
+            else:
+                sp = save_path or (self.get_save_dir() / "quick.json")
+                sp.parent.mkdir(parents=True, exist_ok=True)
+                sp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                return True
         except Exception:
             return False
 
     def quickload(self, save_path: Path | None = None) -> bool:
         try:
-            sp = save_path or (self.get_save_dir() / "quick.json")
-            if not sp.exists():
-                return False
-            data = json.loads(sp.read_text(encoding="utf-8"))
+            # Prefer injected save store; fall back to legacy file
+            if self._save_store and save_path is None:
+                data = self._save_store.read_quick()
+                if not data:
+                    return False
+            else:
+                sp = save_path or (self.get_save_dir() / "quick.json")
+                if not sp.exists():
+                    return False
+                data = json.loads(sp.read_text(encoding="utf-8"))
             script = data.get("script")
             ip = int(data.get("ip", 0))
             choices = data.get("choices") or []
+            snapshot = data.get("snapshot") or None
             if not script:
                 return False
             p = Path(script)
@@ -718,16 +746,37 @@ class Engine:
             prog = parse_script(source)
             self.load(prog)
             self.script_path = p
-            # Reset renderer state then fast-replay deterministically to rebuild state
+            # Apply snapshot if available, else fast-replay deterministically to rebuild state
             try:
-                if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
-                    self.renderer.reset_state()  # type: ignore[attr-defined]
+                if snapshot and hasattr(self.renderer, "apply_snapshot") and callable(getattr(self.renderer, "apply_snapshot")):
+                    # reset renderer to a clean state first
+                    if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
+                        self.renderer.reset_state()  # type: ignore[attr-defined]
+                    self.renderer.apply_snapshot(snapshot)  # type: ignore[attr-defined]
+                    # adopt saved variable store and set ip so the saved line will be executed next
+                    try:
+                        self.vars = dict(data.get("vars") or {})
+                    except Exception:
+                        self.vars = {}
+                    self.ip = max(0, int(ip) - 1)
+                else:
+                    # Reset renderer state then fast-replay deterministically
+                    if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
+                        self.renderer.reset_state()  # type: ignore[attr-defined]
+                    self._replay_choices = list(choices)
+                    # Rewind target by one so the saved line will be executed next
+                    target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
+                    self._fast_replay_to(target)
             except Exception:
-                pass
-            self._replay_choices = list(choices)
-            # Rewind target by one so the saved line will be executed next, avoiding off-by-one advance
-            target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
-            self._fast_replay_to(target)
+                # Snapshot failed -> fall back to fast replay
+                try:
+                    if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
+                        self.renderer.reset_state()  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                self._replay_choices = list(choices)
+                target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
+                self._fast_replay_to(target)
             # adopt saved trace so future saves continue from here
             self.choice_trace = list(choices)
             # line trace rebuilt during replay; keep as-is
@@ -745,12 +794,16 @@ class Engine:
         try:
             if not self.program:
                 return False
-            sp = self._slot_json_path(int(slot), base)
-            sp.parent.mkdir(parents=True, exist_ok=True)
             try:
                 cur_label = getattr(self.renderer, "_current_label", None)
             except Exception:
                 cur_label = None
+            snapshot = None
+            try:
+                if hasattr(self.renderer, "get_snapshot") and callable(getattr(self.renderer, "get_snapshot")):
+                    snapshot = self.renderer.get_snapshot()  # type: ignore[attr-defined]
+            except Exception:
+                snapshot = None
             payload = {
                 "script": str(self.script_path) if self.script_path else None,
                 "ip": self.ip,
@@ -758,21 +811,34 @@ class Engine:
                 "choices": list(self.choice_trace),
                 "vars": self.vars,
                 "label": cur_label,
+                "snapshot": snapshot,
+                "version": 2,
             }
-            sp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            return True
+            if self._save_store and base is None:
+                return bool(self._save_store.write_slot(int(slot), payload))
+            else:
+                sp = self._slot_json_path(int(slot), base)
+                sp.parent.mkdir(parents=True, exist_ok=True)
+                sp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                return True
         except Exception:
             return False
 
     def load_from_slot(self, slot: int, base: Path | None = None) -> bool:
         try:
-            sp = self._slot_json_path(int(slot), base)
-            if not sp.exists():
-                return False
-            data = json.loads(sp.read_text(encoding="utf-8"))
+            if self._save_store and base is None:
+                data = self._save_store.read_slot(int(slot))
+                if not data:
+                    return False
+            else:
+                sp = self._slot_json_path(int(slot), base)
+                if not sp.exists():
+                    return False
+                data = json.loads(sp.read_text(encoding="utf-8"))
             script = data.get("script")
             ip = int(data.get("ip", 0))
             choices = data.get("choices") or []
+            snapshot = data.get("snapshot") or None
             if not script:
                 return False
             p = Path(script)
@@ -782,15 +848,32 @@ class Engine:
             prog = parse_script(source)
             self.load(prog)
             self.script_path = p
-            # Reset renderer state then fast-replay deterministically
+            # Apply snapshot if available; otherwise fast replay
             try:
-                if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
-                    self.renderer.reset_state()  # type: ignore[attr-defined]
+                if snapshot and hasattr(self.renderer, "apply_snapshot") and callable(getattr(self.renderer, "apply_snapshot")):
+                    if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
+                        self.renderer.reset_state()  # type: ignore[attr-defined]
+                    self.renderer.apply_snapshot(snapshot)  # type: ignore[attr-defined]
+                    try:
+                        self.vars = dict(data.get("vars") or {})
+                    except Exception:
+                        self.vars = {}
+                    self.ip = max(0, int(ip) - 1)
+                else:
+                    if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
+                        self.renderer.reset_state()  # type: ignore[attr-defined]
+                    self._replay_choices = list(choices)
+                    target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
+                    self._fast_replay_to(target)
             except Exception:
-                pass
-            self._replay_choices = list(choices)
-            target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
-            self._fast_replay_to(target)
+                try:
+                    if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
+                        self.renderer.reset_state()  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                self._replay_choices = list(choices)
+                target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
+                self._fast_replay_to(target)
             self.choice_trace = list(choices)
             # line trace rebuilt during replay; keep as-is
             self._replay_choices = None

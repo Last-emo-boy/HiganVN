@@ -77,6 +77,8 @@ class PygameRenderer(IRenderer):
         pygame.display.set_caption(title)
         self.canvas = pygame.Surface(LOGICAL_SIZE).convert_alpha()
         self.bg = None
+        # track last background path (for future timeline snapshots)
+        self._bg_path = None  # type: Optional[str]
 
         # asset namespace for asset resolution (needed before font init)
         self._asset_ns = asset_namespace.strip() if isinstance(asset_namespace, str) and asset_namespace.strip() else None
@@ -92,6 +94,8 @@ class PygameRenderer(IRenderer):
         # characters and assets
         self.actor_map = load_actor_mapping(self._asset_ns or ".") or load_actor_mapping(".")
         self.cg = None  # full-screen CG overlay
+        # track last CG path (for future timeline snapshots)
+        self._cg_path = None  # type: Optional[str]
         self.show_backlog = False
 
         # UI state
@@ -262,6 +266,70 @@ class PygameRenderer(IRenderer):
         # store last frame after presenting
         self._last_frame = self.canvas.copy()
 
+    # --- snapshot helpers ---
+    def get_snapshot(self) -> dict:
+        """Collect a minimal renderer snapshot for deterministic restoration.
+
+        Returns:
+            dict with keys: bg, cg, characters (list of logical states)
+        """
+        try:
+            chars = []
+            if hasattr(self, 'char_layer') and hasattr(self.char_layer, 'snapshot_characters'):
+                chars = list(self.char_layer.snapshot_characters())  # type: ignore[attr-defined]
+        except Exception:
+            chars = []
+        return {
+            "bg": getattr(self, "_bg_path", None),
+            "cg": getattr(self, "_cg_path", None),
+            "characters": chars,
+        }
+
+    def apply_snapshot(self, snap: dict) -> None:
+        """Apply a renderer snapshot captured by get_snapshot().
+
+        Safe best-effort; missing assets fall back to placeholders.
+        """
+        try:
+            bgp = snap.get("bg")
+            self.set_background(bgp if bgp else None)
+        except Exception:
+            pass
+        try:
+            cgp = snap.get("cg")
+            # route through command path for CG to ensure consistency
+            self.command("CG", str(cgp or "None"))
+        except Exception:
+            pass
+        try:
+            chars = snap.get("characters") or []
+            for ch in chars:
+                actor = ch.get("id")
+                outfit = ch.get("outfit")
+                pose = ch.get("pose")
+                action = ch.get("action")
+                if not actor:
+                    continue
+                # ensure actor present
+                try:
+                    stage_set_outfit(self, actor, outfit)
+                except Exception:
+                    pass
+                # set pose if provided
+                try:
+                    if pose:
+                        self.char_layer.ensure_loaded(actor, self._resolve_asset, lambda lbl: make_char_placeholder(lbl, self.font))
+                        self.char_layer.set_pose(actor, str(pose), self._resolve_asset, lambda emo: make_pose_placeholder(emo, self.font))
+                except Exception:
+                    pass
+                # set action if provided
+                try:
+                    stage_set_action(self, actor, action)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     # --- timing/display config ---
     def set_frame_rate(self, fps: int) -> None:
         try:
@@ -287,6 +355,10 @@ class PygameRenderer(IRenderer):
     def set_background(self, path: Optional[str]) -> None:
         self._pump()
         bg_set(self, path)
+        try:
+            self._bg_path = str(path) if path is not None else None
+        except Exception:
+            self._bg_path = None
         self._render()
 
     def play_bgm(self, path: Optional[str], volume: float | None = None) -> None:
@@ -362,7 +434,12 @@ class PygameRenderer(IRenderer):
         self._pump()
         up = name.upper()
         if up == "CG":
-            cg_set(self, args.strip())
+            arg = args.strip()
+            cg_set(self, arg)
+            try:
+                self._cg_path = arg if arg else None
+            except Exception:
+                self._cg_path = None
         elif up == "FADE":
             # Syntax: > FADE [in|out] [duration_ms]
             parts = args.split()
@@ -535,6 +612,12 @@ class PygameRenderer(IRenderer):
         # Clear background and CG overlay
         self.bg = None
         self.cg = None
+        # Clear tracked asset paths
+        try:
+            self._bg_path = None
+            self._cg_path = None
+        except Exception:
+            pass
         # Reset character layer and animations
         self.char_layer = CharacterLayer(self._slots)
         self.animator = Animator()
@@ -660,6 +743,19 @@ class PygameRenderer(IRenderer):
                 # capture thumbnail first on save
                 try:
                     self._capture_thumbnail(int(slot))
+                except Exception:
+                    pass
+                # write metadata for UI listing (label and timestamp)
+                try:
+                    from datetime import datetime
+                    meta_path = self._slot_meta_path(int(slot))
+                    meta_path.parent.mkdir(parents=True, exist_ok=True)
+                    meta = {
+                        "ts": datetime.now().isoformat(timespec="seconds"),
+                        "label": getattr(self, "_current_label", None),
+                    }
+                    import json as _json
+                    meta_path.write_text(_json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
                 except Exception:
                     pass
                 ok = bool(self._save_slot_hook(int(slot)))

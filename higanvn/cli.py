@@ -24,6 +24,9 @@ def main(argv: List[str] | None = None) -> int:
     p_run.add_argument("--strict", action="store_true", help="Enable strict script errors")
     p_run.add_argument("--font", type=str, default=None, help="Path to TTF/OTF font for CJK text")
     p_run.add_argument("--font-size", type=int, default=28, help="Font size for UI text")
+    # start position controls
+    p_run.add_argument("--start-label", type=str, default=None, help="Start execution at given label")
+    p_run.add_argument("--start-line", type=int, default=None, help="Start execution at the first op at or after this source line")
 
     # pack subcommand: build a standalone app with PyInstaller (per-OS)
     p_pack = sub.add_parser("pack", help="Pack a script and assets into a distributable app/binary")
@@ -106,6 +109,33 @@ def main(argv: List[str] | None = None) -> int:
             engine.set_script_path(script_path)
 
         engine.load(program)
+        # optional seek to start position
+        try:
+            target_ip = None
+            # line takes precedence if provided
+            if getattr(args, "start_line", None):
+                try:
+                    target_line = int(args.start_line)
+                    # find first op with payload.line >= target_line
+                    for idx, op in enumerate(program.ops):
+                        try:
+                            ln = op.payload.get("line")
+                        except Exception:
+                            ln = None
+                        if isinstance(ln, int) and ln >= target_line:
+                            target_ip = idx
+                            break
+                except Exception:
+                    target_ip = None
+            if target_ip is None and getattr(args, "start_label", None):
+                name = str(args.start_label)
+                if name in program.labels:
+                    target_ip = int(program.labels[name])
+            if target_ip is not None and target_ip >= 0:
+                # fast-forward deterministically so next step executes target op
+                engine._fast_replay_to(int(target_ip))  # noqa: SLF001
+        except Exception:
+            pass
         # For MVP in headless mode, just iterate and print
         engine.run_headless()
         return 0

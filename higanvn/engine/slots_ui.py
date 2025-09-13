@@ -108,9 +108,22 @@ def show_slots_menu(
                     canvas.blit(placeholder, (rect.x + rect.width // 2 - placeholder.get_width() // 2, rect.y + rect.height // 2 - 10))
                 meta = metas.get(idx)
                 ts = meta.get("ts") if isinstance(meta, dict) else None
+                label = meta.get("label") if isinstance(meta, dict) else None
                 if ts:
                     ts_surf = hint_font.render(str(ts), True, (180, 180, 180))
                     canvas.blit(ts_surf, (rect.x + rect.width - ts_surf.get_width() - 8, rect.y + 6))
+                if label:
+                    # draw label under the slot number, trimmed if too long
+                    lbl = str(label)
+                    # simple trim: ensure it fits within rect width minus padding
+                    maxw = rect.width - 16
+                    trimmed = lbl
+                    while hint_font.size(trimmed)[0] > maxw and len(trimmed) > 1:
+                        trimmed = trimmed[:-1]
+                    if trimmed != lbl and len(trimmed) > 1:
+                        trimmed = trimmed[:-1] + "…"
+                    lbl_surf = hint_font.render(trimmed, True, (200, 200, 220))
+                    canvas.blit(lbl_surf, (rect.x + 8, rect.y + 6 + num_surf.get_height() + 2))
                 x0 += cell_w + gap_x
                 idx += 1
             y0 += cell_h + gap_y

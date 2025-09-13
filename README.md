@@ -40,6 +40,14 @@ pytest -q
 
 说明：后续可插拔渲染 / 音频后端（当前使用 pygame）。
 
+### 存档格式（version=2）
+- 自 v2 起，存档 JSON 额外包含：
+	- `version: 2`
+	- `snapshot`: 渲染器的最小状态快照（背景、CG、角色 outfit/pose/action 列表）
+	- 仍保留 `script`、`ip`、`choices`、`vars`、`label`、`ts` 等字段。
+- 读取时优先使用 `snapshot` 直接恢复；若缺失或失败，会回退到“快速回放（fast replay）”按选择轨迹重建状态，兼容旧版存档。
+- 槽位界面会显示缩略图、时间戳与标签名。
+
 ## GUI 动效 (Effects)
 
 在 pygame 模式下支持基础立绘/角色动画：

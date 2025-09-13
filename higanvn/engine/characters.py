@@ -1,7 +1,4 @@
-from __future__ import annotations
-
-from typing import Dict, Optional, Tuple, Callable
-from pathlib import Path
+from typing import Dict, Optional, Tuple, Callable, List
 
 import pygame
 from pygame import Surface
@@ -14,35 +11,43 @@ LOGICAL_SIZE: Tuple[int, int] = (1280, 720)
 
 class CharacterLayer:
     def __init__(self, slots: dict) -> None:
-        self.characters: Dict[str, tuple[Surface | None, Surface | None]] = {}
-        self.active_actor: Optional[str] = None
+        # actor id -> (base body, pose overlay or replacement)
+        self.characters = {}  # type: Dict[str, Tuple[Optional[Surface], Optional[Surface]]]
+        self.active_actor = None  # type: Optional[str]
         self._slots = slots or {}
-        # current outfit folder per actor (None -> default root)
-        self._outfits = {}
-        # current action overlay per actor (preloaded Surface)
-        self._actions = {}
-        # debug: last computed rects/centers
-        self._last_rects = {}
-        self._last_centers = {}
+        # current outfit folder per actor (None -> root)
+        self._outfits = {}  # type: Dict[str, Optional[str]]
+        # current action overlay per actor
+        self._actions = {}  # type: Dict[str, Optional[Surface]]
+        # logical names for snapshot/rebuild
+        self._pose_names = {}  # type: Dict[str, Optional[str]]
+        self._action_names = {}  # type: Dict[str, Optional[str]]
+        # debug caches
+        self._last_rects = {}  # type: Dict[str, pygame.Rect]
+        self._last_centers = {}  # type: Dict[str, Tuple[int, int]]
 
     def set_outfit(self, actor: str, outfit: Optional[str]) -> None:
-        """Set current outfit folder for actor (subdirectory under ch/<actor>/). None resets to default.
+        """Set current outfit subfolder for actor; None to reset to root.
 
-        Clearing cached images for actor so it reloads on next ensure/set_pose.
+        Clears cached images for that actor so they reload on next ensure/set.
         """
         self._outfits[actor] = outfit if outfit else None
-        # drop cached images to reload from new outfit on next render
         if actor in self.characters:
             self.characters.pop(actor, None)
-        # action overlay needs refresh as well under new outfit
         self._actions.pop(actor, None)
+        self._pose_names.pop(actor, None)
+        self._action_names.pop(actor, None)
 
-    def ensure_loaded(self, actor: str, resolve_path: Callable[[str], str], make_placeholder: Callable[[str], Surface]) -> None:
+    def ensure_loaded(
+        self,
+        actor: str,
+        resolve_path: Callable[[str], str],
+        make_placeholder: Callable[[str], Surface],
+    ) -> None:
         if actor in self.characters:
             return
         outfit = self._outfits.get(actor)
-        # prefer outfit subfolder if set
-        base_path = None
+        base_path = None  # type: Optional[str]
         try:
             if outfit:
                 base_path = resolve_path(f"ch/{actor}/{outfit}/base.png")
@@ -56,63 +61,76 @@ class CharacterLayer:
             base = make_placeholder(actor)
         self.characters[actor] = (base, None)
 
-    def set_pose(self, actor: str, emotion: str, resolve_path: Callable[[str], str], make_pose_ph: Callable[[str], Surface]) -> None:
+    def set_pose(
+        self,
+        actor: str,
+        emotion: str,
+        resolve_path: Callable[[str], str],
+        make_pose_ph: Callable[[str], Surface],
+    ) -> None:
         base, _ = self.characters.get(actor, (None, None))
         outfit = self._outfits.get(actor)
-        pose: Optional[Surface] = None
-        # Try outfit-specific pose first
+        pose = None  # type: Optional[Surface]
         if outfit:
             try:
-                pose_path = resolve_path(f"ch/{actor}/{outfit}/pose_{emotion}.png")
-                pose = pygame.image.load(pose_path).convert_alpha()
+                p1 = resolve_path(f"ch/{actor}/{outfit}/pose_{emotion}.png")
+                pose = pygame.image.load(p1).convert_alpha()
             except Exception:
                 pose = None
-        # Fallback to root pose if outfit-specific missing
         if pose is None:
             try:
-                pose_path_root = resolve_path(f"ch/{actor}/pose_{emotion}.png")
-                pose = pygame.image.load(pose_path_root).convert_alpha()
+                p2 = resolve_path(f"ch/{actor}/pose_{emotion}.png")
+                pose = pygame.image.load(p2).convert_alpha()
             except Exception:
-                pose = make_pose_ph(str(emotion))
+                pose = None
+        if pose is None:
+            pose = make_pose_ph(str(emotion))
         self.characters[actor] = (base, pose)
+        self._pose_names[actor] = str(emotion)
 
-    def set_action(self, actor: str, action: Optional[str], resolve_path: Callable[[str], str], make_pose_ph: Callable[[str], Surface]) -> None:
-        """Set or clear an action overlay for actor.
-
-        Loads ch/<actor>/action_<action>.png (or under outfit subfolder if set). None clears.
-        """
+    def set_action(
+        self,
+        actor: str,
+        action: Optional[str],
+        resolve_path: Callable[[str], str],
+        make_pose_ph: Callable[[str], Surface],
+    ) -> None:
         if not action:
             self._actions[actor] = None
+            self._action_names.pop(actor, None)
             return
         outfit = self._outfits.get(actor)
-        img: Optional[Surface] = None
-        # Try outfit-specific action first
+        img = None  # type: Optional[Surface]
         if outfit:
             try:
                 p1 = resolve_path(f"ch/{actor}/{outfit}/action_{action}.png")
                 img = pygame.image.load(p1).convert_alpha()
             except Exception:
                 img = None
-        # Fallback to root action
         if img is None:
             try:
                 p2 = resolve_path(f"ch/{actor}/action_{action}.png")
                 img = pygame.image.load(p2).convert_alpha()
             except Exception:
-                img = make_pose_ph(f"action:{action}")
+                img = None
+        if img is None:
+            img = make_pose_ph(f"action:{action}")
         self._actions[actor] = img
+        self._action_names[actor] = str(action)
 
     def remove(self, actor: str) -> None:
-        """Remove an actor from the stage (and its action overlay)."""
         self.characters.pop(actor, None)
         self._actions.pop(actor, None)
+        self._pose_names.pop(actor, None)
+        self._action_names.pop(actor, None)
         if self.active_actor == actor:
             self.active_actor = None
 
     def clear(self) -> None:
-        """Clear all actors from the stage."""
         self.characters.clear()
         self._actions.clear()
+        self._pose_names.clear()
+        self._action_names.clear()
         self.active_actor = None
         self._last_rects.clear()
         self._last_centers.clear()
@@ -120,20 +138,17 @@ class CharacterLayer:
     def render(self, canvas: Surface, animator: Animator, now_ms: int) -> None:
         if not self.characters:
             return
-        slot_positions = self._slots.get("positions", [
-            (int(LOGICAL_SIZE[0] * 0.2), int(LOGICAL_SIZE[1] * 0.64)),
-            (int(LOGICAL_SIZE[0] * 0.5), int(LOGICAL_SIZE[1] * 0.64)),
-            (int(LOGICAL_SIZE[0] * 0.8), int(LOGICAL_SIZE[1] * 0.64)),
-        ])
+        slot_positions = self._slots.get(
+            "positions",
+            [
+                (int(LOGICAL_SIZE[0] * 0.2), int(LOGICAL_SIZE[1] * 0.64)),
+                (int(LOGICAL_SIZE[0] * 0.5), int(LOGICAL_SIZE[1] * 0.64)),
+                (int(LOGICAL_SIZE[0] * 0.8), int(LOGICAL_SIZE[1] * 0.64)),
+            ],
+        )
         slot_scale = float(self._slots.get("scale", 0.9))
-        # Preserve insertion order so script SHOW/HIDE controls layout deterministically
         order = list(self.characters.keys())
-        # Slightly shrink when showing 3+ actors to reduce overlap
         eff_scale = slot_scale * (0.86 if len(order) >= 3 else 1.0)
-        # Choose slot indices based on number of actors:
-        # - 1 actor -> center (prefer middle of 3 presets)
-        # - 2 actors -> left & right
-        # - 3+ actors -> sequential (left, center, right, ...)
         n = len(order)
         pos_count = max(1, len(slot_positions))
         if n == 1:
@@ -154,13 +169,11 @@ class CharacterLayer:
         self._last_centers.clear()
         for idx, actor in enumerate(order):
             base, pose = self.characters[actor]
-            # map logical order to chosen slot index
             si = slot_index_map[idx] if idx < len(slot_index_map) else (idx % pos_count)
             x, y = slot_positions[si]
             dx, dy = animator.offset(now_ms, actor, LOGICAL_SIZE[0], LOGICAL_SIZE[1])
             cx, cy = int(x + dx), int(y + dy)
 
-            # Choose body: pose replaces base when present (design change)
             body = pose if pose is not None else base
             if body:
                 b = scale_to_height(body, int(LOGICAL_SIZE[1] * eff_scale))
@@ -171,14 +184,12 @@ class CharacterLayer:
                     canvas.blit(dim, rect)
                 else:
                     canvas.blit(b, rect)
-                # store last rect/center for debug
                 try:
                     self._last_rects[actor] = rect.copy()
                     self._last_centers[actor] = (cx, cy)
                 except Exception:
                     pass
 
-            # Action overlay draws above the chosen body
             act = self._actions.get(actor)
             if act:
                 a_s = scale_to_height(act, int(LOGICAL_SIZE[1] * eff_scale))
@@ -189,15 +200,26 @@ class CharacterLayer:
                     canvas.blit(dim_a, recta)
                 else:
                     canvas.blit(a_s, recta)
-                    # update rect to include overlay bounds
                     try:
                         self._last_rects[actor] = recta.copy()
                     except Exception:
                         pass
 
-    # debug helpers
     def last_rects(self) -> Dict[str, pygame.Rect]:
         return dict(self._last_rects)
 
     def last_centers(self) -> Dict[str, Tuple[int, int]]:
         return dict(self._last_centers)
+
+    def snapshot_characters(self) -> List[dict]:
+        data: List[dict] = []
+        for actor in self.characters.keys():
+            data.append(
+                {
+                    "id": actor,
+                    "outfit": self._outfits.get(actor),
+                    "pose": self._pose_names.get(actor),
+                    "action": self._action_names.get(actor),
+                }
+            )
+        return data
