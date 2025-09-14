@@ -40,11 +40,12 @@ def wait_for_advance(renderer) -> None:
                         pass
                     waiting = False
             if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEUP:
-                renderer.textbox.scroll_up()
+                # faster scroll in backlog view
+                renderer.textbox.scroll_up(3 if renderer.show_backlog else 1)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
                 renderer.textbox.scroll_up()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
-                renderer.textbox.scroll_down()
+                renderer.textbox.scroll_down(3 if renderer.show_backlog else 1)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
                 renderer.textbox.scroll_down()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
@@ -52,6 +53,25 @@ def wait_for_advance(renderer) -> None:
                 # Do not advance when toggling backlog
                 renderer._render()
                 continue
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_h:
+                # Toggle UI visibility (hide overlays and textbox)
+                try:
+                    renderer._ui_hidden = not getattr(renderer, '_ui_hidden', False)
+                except Exception:
+                    pass
+                renderer._render()
+                continue
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F12:
+                # Capture a screenshot to save/screenshots
+                p = None
+                try:
+                    p = renderer.capture_screenshot()
+                except Exception:
+                    p = None
+                if p:
+                    renderer.show_banner("已保存截图")
+                else:
+                    renderer.show_banner("截图失败", color=(200,140,40))
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 renderer._show_flow_map()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_F3:
@@ -136,9 +156,9 @@ def wait_for_advance(renderer) -> None:
                 # If backlog is visible, wheel scrolls the backlog only
                 if renderer.show_backlog and renderer.textbox.history:
                     if event.y > 0:
-                        renderer.textbox.scroll_up()
+                        renderer.textbox.scroll_up(2)
                     elif event.y < 0:
-                        renderer.textbox.scroll_down()
+                        renderer.textbox.scroll_down(2)
                     # stay in backlog mode and refresh
                     renderer._render()
                     continue

@@ -28,6 +28,13 @@ class ISaveStore(ABC):
     def read_slot(self, slot: int) -> Optional[dict]:  # pragma: no cover - interface
         raise NotImplementedError
 
+    # Optional extended APIs for UI and maintenance
+    def list_slots(self) -> list[int]:  # pragma: no cover - interface
+        return []
+
+    def delete_slot(self, slot: int) -> bool:  # pragma: no cover - interface
+        return False
+
 
 class FileSaveStore(ISaveStore):
     """Filesystem-based save store compatible with current save file layout.
@@ -77,6 +84,12 @@ class FileSaveStore(ISaveStore):
         try:
             p = self._slot_path(int(slot))
             p.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            try:
+                # invalidate meta cache for this slot if present
+                from ..save_io import invalidate_slot_cache
+                invalidate_slot_cache(get_save_dir=self._get_base, slot=int(slot))
+            except Exception:
+                pass
             return True
         except Exception:
             return False
@@ -89,3 +102,44 @@ class FileSaveStore(ISaveStore):
             return json.loads(p.read_text(encoding="utf-8"))
         except Exception:
             return None
+
+    # --- extended helpers ---
+    def list_slots(self) -> list[int]:
+        base = self._ensure_dir()
+        slots: list[int] = []
+        try:
+            for p in base.glob("slot_*.json"):
+                name = p.stem  # slot_XX
+                try:
+                    n = int(name.split("_")[1])
+                    slots.append(n)
+                except Exception:
+                    continue
+            slots.sort()
+        except Exception:
+            return []
+        return slots
+
+    def delete_slot(self, slot: int) -> bool:
+        ok = True
+        try:
+            p = self._slot_path(int(slot))
+            if p.exists():
+                p.unlink()
+        except Exception:
+            ok = False
+        # try delete thumbnail if present
+        try:
+            from ..save_io import slot_thumb_path
+            tp = slot_thumb_path(int(slot), get_save_dir=self._get_base)
+            if tp.exists():
+                tp.unlink()
+        except Exception:
+            pass
+        # invalidate cache entry
+        try:
+            from ..save_io import invalidate_slot_cache
+            invalidate_slot_cache(get_save_dir=self._get_base, slot=int(slot))
+        except Exception:
+            pass
+        return ok

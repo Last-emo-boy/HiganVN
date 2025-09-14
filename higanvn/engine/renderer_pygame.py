@@ -25,12 +25,12 @@ from higanvn.engine.transition_runner import run_fade
 from higanvn.engine.assets_utils import resolve_asset as resolve_asset_util
 from higanvn.engine.font_utils import init_font
 from higanvn.engine.audio_utils import play_bgm as play_bgm_util, play_se as play_se_util
-from higanvn.engine.save_io import slot_thumb_path as io_slot_thumb_path, slot_meta_path as io_slot_meta_path, read_slot_meta as io_read_slot_meta, capture_thumbnail as io_capture_thumbnail
+from higanvn.engine.save_io import slot_thumb_path as io_slot_thumb_path, slot_meta_path as io_slot_meta_path, read_slot_meta as io_read_slot_meta, capture_thumbnail as io_capture_thumbnail, list_slot_metas as io_list_slot_metas
 from higanvn.engine.placeholders import make_bg_placeholder, make_char_placeholder, make_pose_placeholder
 from higanvn.engine.slots_config import read_slots_config
 from higanvn.engine.flow_map import build_flow_graph
 from higanvn.engine.flow_map_ui import show_flow_map
-from higanvn.engine.debug_hud import DebugHUD, make_renderer_provider
+from higanvn.engine.debug_hud import DebugHUD, make_renderer_provider, make_system_provider, make_audio_provider, make_config_provider, make_slots_provider, make_scene_provider, make_engine_provider, make_cache_provider, make_perf_provider
 from higanvn.engine.debug_window import DebugWindow
 from higanvn.engine.settings_menu import open_settings_menu as settings_open
 from higanvn.engine.title_menu import show_title_menu as title_show
@@ -39,6 +39,8 @@ from higanvn.engine.voice import prepare_voice as voice_prepare
 from higanvn.engine.backgrounds import set_background as bg_set, set_cg as cg_set
 from higanvn.engine.effects import trigger_effect as ef_trigger
 from higanvn.engine.stage import set_outfit as stage_set_outfit, set_action as stage_set_action, hide_actor as stage_hide_actor, clear_stage as stage_clear
+from higanvn.engine.config_io import load_config, save_config
+from higanvn.engine.gallery import open_gallery_ui
 
 
 # Logical canvas size (16:9)
@@ -113,8 +115,110 @@ class PygameRenderer(IRenderer):
         # debug HUD
         self._debug = DebugHUD()
         self._debug.add_provider('renderer', make_renderer_provider(self))
-        # external debug window
-        self._debug_win = DebugWindow(lambda: self._debug.collect())
+        self._debug.add_provider('system', make_system_provider(self))
+        self._debug.add_provider('audio', make_audio_provider(self))
+        self._debug.add_provider('config', make_config_provider(self))
+        self._debug.add_provider('slots', make_slots_provider(self))
+        self._debug.add_provider('scene', make_scene_provider(self))
+        self._debug.add_provider('engine', make_engine_provider(self))
+        # resource cache & performance providers (added later after fields are initialized)
+        # external debug window actions (safe toggles)
+        def _dbg_toggle_auto():
+            self._auto_mode = not bool(getattr(self, '_auto_mode', False))
+            return f"auto={'on' if self._auto_mode else 'off'}"
+
+        def _dbg_toggle_typing():
+            cur = bool(getattr(self, '_typing_enabled', False))
+            self._typing_enabled = not cur
+            return f"typing={'on' if self._typing_enabled else 'off'}"
+
+        def _dbg_stop_voice():
+            try:
+                ch = getattr(self, '_voice_channel', None)
+                if ch is not None and hasattr(ch, 'stop'):
+                    ch.stop()
+                return 'voice: stopped'
+            except Exception:
+                return 'voice: failed'
+
+        def _dbg_hide_ui():
+            self._ui_hidden = not bool(getattr(self, '_ui_hidden', False))
+            return f"ui_hidden={self._ui_hidden}"
+
+        def _dbg_clear_stage():
+            try:
+                stage_clear(self)
+                return 'stage: cleared'
+            except Exception:
+                return 'stage: failed'
+
+        def _dbg_screenshot():
+            try:
+                p = self.capture_screenshot()
+                if p:
+                    self.show_banner(f"已截图: {p}")
+                    return str(p)
+            except Exception:
+                pass
+            return "screenshot failed"
+
+        def _dbg_quicksave():
+            try:
+                if callable(self._qs_hook):
+                    self._qs_hook()
+                    return "quicksave ok"
+            except Exception:
+                pass
+            return "quicksave n/a"
+
+        def _dbg_quickload():
+            try:
+                if callable(self._ql_hook):
+                    self._ql_hook()
+                    return "quickload ok"
+            except Exception:
+                pass
+            return "quickload n/a"
+
+        def _dbg_open_flow_map():
+            try:
+                self._show_flow_map()
+                return "flow map opened"
+            except Exception:
+                return "flow map failed"
+
+        actions = {
+            'Toggle Auto': _dbg_toggle_auto,
+            'Toggle Typing': _dbg_toggle_typing,
+            'Stop Voice': _dbg_stop_voice,
+            'Hide/Show UI': _dbg_hide_ui,
+            'Clear Stage': _dbg_clear_stage,
+            'Screenshot': _dbg_screenshot,
+            'Quick Save': _dbg_quicksave,
+            'Quick Load': _dbg_quickload,
+            'Open Flow Map': _dbg_open_flow_map,
+        }
+        # external debug window with persisted preferences
+        def _load_prefs():
+            try:
+                dbg = (self._config.get("debug") if isinstance(self._config, dict) else {}) or {}
+                return dict(dbg)
+            except Exception:
+                return {"theme": "Dark", "ontop": False, "interval_ms": 300}
+
+        def _save_prefs(prefs: Dict[str, object]):
+            try:
+                if isinstance(self._config, dict):
+                    cur = dict(self._config.get("debug", {}))
+                    cur.update(dict(prefs))
+                    self._config["debug"] = cur
+                    save_config(self._config, lambda: self._get_save_dir() if callable(self._get_save_dir) else Path("save"))
+            except Exception:
+                pass
+
+        self._debug_win = DebugWindow(lambda: self._debug.collect(), actions=actions, prefs=_load_prefs(), on_prefs_save=_save_prefs)
+        # UI visibility
+        self._ui_hidden = False
 
         # simple animation registry via helper
         self.animator = Animator()
@@ -136,6 +240,8 @@ class PygameRenderer(IRenderer):
 
         # audio fades
         self._bgm_fade_ms = 300
+        self._bgm_path = None  # type: Optional[str]
+        self._bgm_vol = None   # type: Optional[float]
         # voice channel
         try:
             pygame.mixer.init()
@@ -153,6 +259,11 @@ class PygameRenderer(IRenderer):
         self._slots = read_slots_config(self._asset_ns, LOGICAL_SIZE)
         # character layer manages characters and active actor
         self.char_layer = CharacterLayer(self._slots)
+        # ui config
+        try:
+            self._config = load_config(lambda: self._get_save_dir() if callable(self._get_save_dir) else Path("save"))
+        except Exception:
+            self._config = {"ui": {}}
 
         # hooks for quick save/load (set by Engine/CLI)
         self._qs_hook = None
@@ -160,6 +271,9 @@ class PygameRenderer(IRenderer):
         # hooks for slot save/load
         self._save_slot_hook = None
         self._load_slot_hook = None
+        # hooks for listing/deleting slots (optional)
+        self._list_slots_hook = None
+        self._delete_slot_hook = None
         # hook for back/rewind one line
         self._back_hook = None
         # callback to get save dir from engine (optional)
@@ -167,6 +281,16 @@ class PygameRenderer(IRenderer):
         # keep a copy of last fully rendered canvas for proper thumbnail capture
         self._last_frame = None
         self._frame_time_ms = 0
+        # performance counters
+        self._perf_last = {}
+        self._perf_avg = {}
+        self._perf_frames = 0
+        # now that timing fields exist, register providers
+        try:
+            self._debug.add_provider('cache', make_cache_provider(self))
+            self._debug.add_provider('perf', make_perf_provider(self))
+        except Exception:
+            pass
         # fast replay mode (engine reconstruction): no flip/tick and no typewriter
         self._fast_replay_mode = False
         self._typing_enabled_prev = self._typing_enabled
@@ -181,6 +305,9 @@ class PygameRenderer(IRenderer):
         # animation suppression flags
         self._suppress_anims_once = False   # consume on next show_text/command
         self._suppress_anims_replay = False # active during fast replay
+        # external debug providers and jump hook placeholders
+        self._ext_debug_providers = {}
+        self._jump_to_label_hook = None
 
     # --- asset path helpers (prefer standardized folders and per-script namespace) ---
     def _resolve_asset(self, path: str, prefixes: Optional[list[str]] = None) -> str:
@@ -194,35 +321,47 @@ class PygameRenderer(IRenderer):
                 raise SystemExit
 
     def _render(self, flip: bool = True, tick: bool = True) -> None:
+        import time as _t
+        t0 = _t.perf_counter()
         # suppress present/sleep in fast replay mode
         if self._fast_replay_mode:
             flip = False
             tick = False
         self.canvas.fill((0, 0, 0, 255))
+        t_bg_begin = _t.perf_counter()
         if self.bg:
             self.canvas.blit(self.bg, (0, 0))
         if self.cg:
-            cg_scaled = pygame.transform.smoothscale(self.cg, LOGICAL_SIZE)
-            self.canvas.blit(cg_scaled, (0, 0))
+            # CG is pre-scaled when set; blit directly
+            self.canvas.blit(self.cg, (0, 0))
+        t_bg = (_t.perf_counter() - t_bg_begin) * 1000.0
         # characters and overlays
+        t_char_begin = _t.perf_counter()
         now = pygame.time.get_ticks()
         self.char_layer.render(self.canvas, self.animator, now)
+        t_char = (_t.perf_counter() - t_char_begin) * 1000.0
         # debug overlays (character bounds/centers)
         try:
+            t_dbg_begin = _t.perf_counter()
             self._draw_debug_overlays()
+            t_dbg = (_t.perf_counter() - t_dbg_begin) * 1000.0
         except Exception:
-            pass
+            t_dbg = 0.0
         # overlays
-        self._overlay.draw_error_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
-        self._overlay.draw_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
+        t_ui_begin = _t.perf_counter()
+        if not self._ui_hidden:
+            self._overlay.draw_error_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
+            self._overlay.draw_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
         cur = self.textbox.current()
-        if cur:
+        if cur and not self._ui_hidden:
             name, text = cur.name, cur.text
             if (isinstance(name, str) and name.strip().startswith("结局")) or (
                 (name is None) and isinstance(text, str) and text.strip().startswith("结局")
             ):
                 draw_end_card(self.canvas, text, self._hint_font, self.font, self._font_path, self._font_size)
             else:
+                # ui config for textbox and text effects
+                ui_cfg = (self._config.get("ui") if isinstance(self._config, dict) else {}) or {}
                 self._reveal_instant, self._line_start_ts, self._line_full_ts = draw_text_panel(
                     self.canvas,
                     self.font,
@@ -235,17 +374,26 @@ class PygameRenderer(IRenderer):
                     self._line_start_ts,
                     self._line_full_ts,
                     self._reveal_instant,
+                    panel_alpha=int(ui_cfg.get("textbox_opacity", 160)),
+                    text_outline=bool(ui_cfg.get("text_outline", False)),
+                    text_shadow=bool(ui_cfg.get("text_shadow", True)),
+                    text_shadow_offset=tuple(ui_cfg.get("text_shadow_offset", [1, 1])),
                 )
-        if self.show_backlog and self.textbox.history:
+        if (not self._ui_hidden) and self.show_backlog and self.textbox.history:
             draw_backlog(self.canvas, self.font, self.textbox.history, self.textbox.view_idx)
-        self._ui_rects = draw_ui_buttons(self.canvas, self.font, self._canvas_mouse_pos)
+        self._ui_rects = draw_ui_buttons(self.canvas, self.font, self._canvas_mouse_pos) if not self._ui_hidden else {}
+        t_ui = (_t.perf_counter() - t_ui_begin) * 1000.0
         # Optional debug HUD
-        try:
-            self._debug.draw(self.canvas, self._hint_font)
-        except Exception:
-            pass
-        draw_hints(self.canvas, self._hint_font, self._auto_mode)
+        t_hud_begin = _t.perf_counter()
+        if not self._ui_hidden:
+            try:
+                self._debug.draw(self.canvas, self._hint_font)
+            except Exception:
+                pass
+            draw_hints(self.canvas, self._hint_font, self._auto_mode)
+        t_hud = (_t.perf_counter() - t_hud_begin) * 1000.0
 
+        t_scale_begin = _t.perf_counter()
         win_w, win_h = self.screen.get_size()
         scale = min(win_w / LOGICAL_SIZE[0], win_h / LOGICAL_SIZE[1])
         dst_w, dst_h = int(LOGICAL_SIZE[0] * scale), int(LOGICAL_SIZE[1] * scale)
@@ -255,23 +403,61 @@ class PygameRenderer(IRenderer):
         self._last_transform = (scale, x, y, dst_w, dst_h)
         self.screen.fill((0, 0, 0))
         self.screen.blit(scaled, (x, y))
+        t_scale = (_t.perf_counter() - t_scale_begin) * 1000.0
         if flip:
+            t_flip_begin = _t.perf_counter()
             pygame.display.flip()
+            t_flip = (_t.perf_counter() - t_flip_begin) * 1000.0
+        else:
+            t_flip = 0.0
         if tick:
+            t_tick_begin = _t.perf_counter()
             self.clock.tick(self._target_fps)
+            t_tick = (_t.perf_counter() - t_tick_begin) * 1000.0
             try:
                 self._frame_time_ms = int(self.clock.get_time())
             except Exception:
                 self._frame_time_ms = 0
+        else:
+            t_tick = 0.0
         # store last frame after presenting
         self._last_frame = self.canvas.copy()
+        # update perf counters
+        t_total = (_t.perf_counter() - t0) * 1000.0
+        stages = {
+            'bg_cg': round(t_bg, 3),
+            'characters': round(t_char, 3),
+            'overlays_ui': round(t_ui, 3),
+            'debug_overlay': round(t_dbg, 3),
+            'hud': round(t_hud, 3),
+            'scale_blit': round(t_scale, 3),
+            'flip': round(t_flip, 3),
+            'tick': round(t_tick, 3),
+            'total': round(t_total, 3),
+        }
+        self._perf_last = stages
+        # Exponential moving average
+        alpha = 0.2
+        if not self._perf_avg:
+            self._perf_avg = dict(stages)
+        else:
+            for k, v in stages.items():
+                try:
+                    prev = float(self._perf_avg.get(k, v))
+                    self._perf_avg[k] = round((1 - alpha) * prev + alpha * float(v), 3)
+                except Exception:
+                    self._perf_avg[k] = round(float(v), 3)
+        try:
+            self._perf_frames = int(self._perf_frames) + 1
+        except Exception:
+            self._perf_frames = 1
 
     # --- snapshot helpers ---
     def get_snapshot(self) -> dict:
         """Collect a minimal renderer snapshot for deterministic restoration.
 
         Returns:
-            dict with keys: bg, cg, characters (list of logical states)
+            dict with keys: bg, cg, characters (list of logical states), auto, typing_speed
         """
         try:
             chars = []
@@ -283,6 +469,15 @@ class PygameRenderer(IRenderer):
             "bg": getattr(self, "_bg_path", None),
             "cg": getattr(self, "_cg_path", None),
             "characters": chars,
+            "auto": bool(getattr(self, "_auto_mode", False)),
+            "typing_speed": float(getattr(self, "_typing_speed", 0.0)),
+            "bgm": {"path": getattr(self, "_bgm_path", None), "volume": getattr(self, "_bgm_vol", None)},
+            "voice": {
+                "pending": {
+                    "path": (self._pending_voice[0] if isinstance(self._pending_voice, tuple) else None) if self._pending_voice else None,
+                    "volume": (self._pending_voice[1] if isinstance(self._pending_voice, tuple) else None) if self._pending_voice else None,
+                },
+            },
         }
 
     def apply_snapshot(self, snap: dict) -> None:
@@ -290,15 +485,48 @@ class PygameRenderer(IRenderer):
 
         Safe best-effort; missing assets fall back to placeholders.
         """
+        # restore simple playback flags first
+        try:
+            ts = snap.get("typing_speed")
+            if ts is not None:
+                self._typing_speed = max(0.0, float(ts))
+                self._typing_enabled = self._typing_speed > 0.0
+        except Exception:
+            pass
+        try:
+            auto = snap.get("auto")
+            if auto is not None:
+                self._auto_mode = bool(auto)
+        except Exception:
+            pass
         try:
             bgp = snap.get("bg")
             self.set_background(bgp if bgp else None)
+        except Exception:
+            pass
+        # restore bgm (best effort)
+        try:
+            bgm = snap.get("bgm") or {}
+            p = bgm.get("path")
+            v = bgm.get("volume")
+            if p is not None or v is not None:
+                self.play_bgm(p, v)
         except Exception:
             pass
         try:
             cgp = snap.get("cg")
             # route through command path for CG to ensure consistency
             self.command("CG", str(cgp or "None"))
+        except Exception:
+            pass
+        # restore voice pending (best effort)
+        try:
+            v = snap.get("voice") or {}
+            pen = v.get("pending") or {}
+            vp = pen.get("path")
+            vv = pen.get("volume")
+            if vp is not None or vv is not None:
+                self.prepare_voice(vp, vv)
         except Exception:
             pass
         try:
@@ -364,6 +592,11 @@ class PygameRenderer(IRenderer):
     def play_bgm(self, path: Optional[str], volume: float | None = None) -> None:
         self._pump()
         play_bgm_util(path, volume=volume, resolve_path=lambda p: self._resolve_asset(p, ["bgm"]))
+        try:
+            self._bgm_path = path if path else None
+            self._bgm_vol = float(volume) if volume is not None else None
+        except Exception:
+            self._bgm_path, self._bgm_vol = None, None
 
     def play_se(self, path: str, volume: float | None = None) -> None:
         self._pump()
@@ -571,6 +804,24 @@ class PygameRenderer(IRenderer):
     
     def show_banner(self, message: str, color: Tuple[int, int, int] = (60, 160, 60)) -> None:
         self._overlay.show_banner(message, color)
+
+    def capture_screenshot(self) -> Optional[Path]:
+        """Capture the current canvas to save/screenshots with a timestamped filename.
+
+        Returns the saved path on success, else None.
+        """
+        try:
+            base_dir = (self._get_save_dir or (lambda: Path("save")))()
+            out_dir = Path(base_dir) / "screenshots"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            import datetime
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            p = out_dir / f"shot_{ts}.png"
+            src = self._last_frame if isinstance(self._last_frame, pygame.Surface) else self.canvas
+            pygame.image.save(src, str(p))
+            return p
+        except Exception:
+            return None
     # removed: _draw_banner/_draw_error_banner (now in Overlay)
 
     # hooks setters
@@ -588,6 +839,10 @@ class PygameRenderer(IRenderer):
         self._load_slot_hook = fn
     def set_get_save_dir(self, fn: Callable[[], Path]) -> None:
         self._get_save_dir = fn
+    def set_list_slots_hook(self, fn: Callable[[], list[int]]) -> None:
+        self._list_slots_hook = fn
+    def set_delete_slot_hook(self, fn: Callable[[int], bool]) -> None:
+        self._delete_slot_hook = fn
 
     # --- load/rollback helpers ---
     def begin_fast_replay(self) -> None:
@@ -717,6 +972,12 @@ class PygameRenderer(IRenderer):
         io_capture_thumbnail(src, slot, get_save_dir=self._get_save_dir or (lambda: Path("save")))
 
     def _show_slots_menu(self, mode: str = "save", total: int = 12) -> Optional[int]:
+        # preload metas for performance
+        pre = {}
+        try:
+            pre = io_list_slot_metas(get_save_dir=self._get_save_dir or (lambda: Path("save")))
+        except Exception:
+            pre = {}
         return show_slots_menu(
             mode=mode,
             total=total,
@@ -727,8 +988,10 @@ class PygameRenderer(IRenderer):
             error_font=self._error_font,
             render_base=lambda flip=False, tick=False: self._render(flip=flip, tick=tick),
             get_last_transform=lambda: self._last_transform,
-            read_slot_meta=self._read_slot_meta,
+            read_slot_meta=lambda i: pre.get(int(i)) if pre else self._read_slot_meta(i),
             slot_thumb_path=self._slot_thumb_path,
+            list_slots=self._list_slots_hook,
+            delete_slot=self._delete_slot_hook,
         )
     # moved to placeholders module: make_bg_placeholder, make_char_placeholder, make_pose_placeholder
 
@@ -745,19 +1008,6 @@ class PygameRenderer(IRenderer):
                     self._capture_thumbnail(int(slot))
                 except Exception:
                     pass
-                # write metadata for UI listing (label and timestamp)
-                try:
-                    from datetime import datetime
-                    meta_path = self._slot_meta_path(int(slot))
-                    meta_path.parent.mkdir(parents=True, exist_ok=True)
-                    meta = {
-                        "ts": datetime.now().isoformat(timespec="seconds"),
-                        "label": getattr(self, "_current_label", None),
-                    }
-                    import json as _json
-                    meta_path.write_text(_json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-                except Exception:
-                    pass
                 ok = bool(self._save_slot_hook(int(slot)))
             if mode == "load" and self._load_slot_hook:
                 ok = bool(self._load_slot_hook(int(slot)))
@@ -770,12 +1020,42 @@ class PygameRenderer(IRenderer):
             self.show_banner("操作失败", color=(200,140,40))
         return int(slot)
 
+    # --- interface additions ---
+    def add_debug_provider(self, name: str, fn) -> None:  # type: ignore[override]
+        try:
+            self._ext_debug_providers[str(name)] = fn
+            self._debug.add_provider(str(name), fn)
+        except Exception:
+            pass
+
+    def set_jump_to_label_hook(self, fn) -> None:  # type: ignore[override]
+        self._jump_to_label_hook = fn
+
     def open_settings_menu(self) -> None:  # type: ignore[override]
+        before = dict(self._config)
         settings_open(self)
+        # persist ui-related config changes from renderer fields
+        try:
+            # collect current ui options
+            ui = dict(self._config.get("ui", {}))
+            # typing speed/auto are already in renderer fields; textbox opacity & effects in config only
+            self._config["ui"] = ui
+            save_config(self._config, lambda: self._get_save_dir() if callable(self._get_save_dir) else Path("save"))
+        except Exception:
+            pass
 
     def open_gallery(self) -> None:  # type: ignore[override]
-        # Placeholder: show banner
-        self.show_banner("CG 画廊暂未实装", color=(200,140,40))
+        try:
+            open_gallery_ui(
+                screen=self.screen,
+                canvas=self.canvas,
+                clock=self.clock,
+                font=self.font,
+                resolve_path=lambda p, prefs=None: self._resolve_asset(p, (prefs or ["cg"])) ,
+                get_save_dir=self._get_save_dir if callable(self._get_save_dir) else (lambda: Path("save"))
+            )
+        except Exception:
+            self.show_banner("CG 画廊打开失败", color=(200,140,40))
 
     def quit(self) -> None:  # type: ignore[override]
         pygame.quit()

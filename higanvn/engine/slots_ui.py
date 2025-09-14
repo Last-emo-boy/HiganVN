@@ -22,6 +22,8 @@ def show_slots_menu(
     get_last_transform: Callable[[], Optional[tuple[float, int, int, int, int]]],
     read_slot_meta: Callable[[int], Optional[dict]],
     slot_thumb_path: Callable[[int], Path],
+    list_slots: Optional[Callable[[], list[int]]] = None,
+    delete_slot: Optional[Callable[[int], bool]] = None,
 ) -> Optional[int]:
     assert mode in ("save", "load")
     cols, rows = 3, max(1, (total + 2) // 3)
@@ -36,12 +38,26 @@ def show_slots_menu(
 
     thumbs: Dict[int, Optional[Surface]] = {}
     metas: Dict[int, Optional[dict]] = {}
+    filled: Optional[set[int]] = None
+    try:
+        if list_slots:
+            filled = set(int(i) for i in list_slots())
+    except Exception:
+        filled = None
     for i in range(1, total + 1):
-        metas[i] = read_slot_meta(i)
-        tp = slot_thumb_path(i)
-        try:
-            thumbs[i] = pygame.image.load(str(tp)).convert()
-        except Exception:
+        if filled is not None and i not in filled:
+            metas[i] = None
+            thumbs[i] = None
+            continue
+        meta = read_slot_meta(i)
+        metas[i] = meta
+        if meta:
+            tp = slot_thumb_path(i)
+            try:
+                thumbs[i] = pygame.image.load(str(tp)).convert()
+            except Exception:
+                thumbs[i] = None
+        else:
             thumbs[i] = None
 
     while True:
@@ -50,7 +66,7 @@ def show_slots_menu(
                 raise SystemExit
             if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_TAB):
                 return None
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 3):
                 mx, my = event.pos
                 lt = get_last_transform()
                 if lt:
@@ -71,9 +87,26 @@ def show_slots_menu(
                         if 0 <= col < cols and 0 <= row < rows:
                             idx = row * cols + col + 1
                             if 1 <= idx <= total:
-                                if mode == "load" and not metas.get(idx):
+                                if event.button == 3:
+                                    # right-click delete if filled and delete provided
+                                    if metas.get(idx) and delete_slot:
+                                        try:
+                                            ok = bool(delete_slot(int(idx)))
+                                        except Exception:
+                                            ok = False
+                                        if ok:
+                                            metas[idx] = None
+                                            thumbs[idx] = None
+                                            if filled is not None:
+                                                try:
+                                                    filled.discard(int(idx))
+                                                except Exception:
+                                                    pass
                                     continue
-                                return idx
+                                else:
+                                    if mode == "load" and not metas.get(idx):
+                                        continue
+                                    return idx
         # render base
         render_base(flip=False, tick=False)
         overlay = pygame.Surface(LOGICAL_SIZE, pygame.SRCALPHA)
@@ -83,6 +116,13 @@ def show_slots_menu(
         pygame.draw.rect(canvas, (255, 255, 255), panel, 2)
         title = error_font.render("存档槽位" if mode == "save" else "读取槽位", True, (255, 255, 255))
         canvas.blit(title, (panel.x + 12, panel.y + 10))
+        # hints
+        try:
+            hint = "左键选择，右键删除" if delete_slot else "左键选择"
+            hs = hint_font.render(hint, True, (200, 200, 200))
+            canvas.blit(hs, (panel.x + panel.width - hs.get_width() - 12, panel.y + 12))
+        except Exception:
+            pass
 
         y0 = panel.y + margin_y
         idx = 1

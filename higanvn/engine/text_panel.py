@@ -31,10 +31,39 @@ def draw_text_panel(
     line_start_ts: int,
     line_full_ts: Optional[int],
     reveal_instant: bool,
+    panel_alpha: Optional[int] = None,
+    text_outline: Optional[bool] = None,
+    text_shadow: Optional[bool] = None,
+    text_shadow_offset: Optional[Tuple[int, int]] = None,
 ) -> tuple[bool, int, Optional[int]]:
+    def _blit_text(s: str, pos: Tuple[int, int], color: Tuple[int, int, int] = (255, 255, 255)) -> None:
+        ox, oy = (text_shadow_offset or (1, 1))
+        if text_outline:
+            try:
+                out = font.render(s, True, (0, 0, 0))
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)):
+                    canvas.blit(out, (pos[0] + dx, pos[1] + dy))
+            except Exception:
+                pass
+        if text_shadow:
+            try:
+                sh = font.render(s, True, (0, 0, 0))
+                canvas.blit(sh, (pos[0] + ox, pos[1] + oy))
+            except Exception:
+                pass
+        try:
+            surf = font.render(s, True, color)
+            canvas.blit(surf, pos)
+        except Exception:
+            pass
     box_rect = pygame.Rect(0, LOGICAL_SIZE[1] - 200, LOGICAL_SIZE[0], 200)
     ui_panel = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
-    ui_panel.fill((0, 0, 0, 160))
+    try:
+        alpha = int(panel_alpha if panel_alpha is not None else 160)
+        alpha = 0 if alpha < 0 else (255 if alpha > 255 else alpha)
+    except Exception:
+        alpha = 160
+    ui_panel.fill((0, 0, 0, alpha))
     canvas.blit(ui_panel, (box_rect.x, box_rect.y))
     pygame.draw.rect(canvas, (255, 255, 255), box_rect, 2)
     y = box_rect.y + 16
@@ -47,11 +76,15 @@ def draw_text_panel(
         else:
             disp = nstr
         pygame.draw.rect(canvas, (255, 255, 0), pygame.Rect(box_rect.x + 10, y + 4, 4, 22))
-        name_surf = font.render(disp, True, name_color)
-        canvas.blit(name_surf, (box_rect.x + 16, y))
+        try:
+            name_surf = font.render(disp, True, name_color)
+        except Exception:
+            name_surf = None
+        _blit_text(disp, (box_rect.x + 16, y), name_color)
         if effect:
-            eff_surf = font.render(f"[{effect}]", True, (150, 150, 255))
-            canvas.blit(eff_surf, (box_rect.x + 16 + name_surf.get_width() + 10, y))
+            eff_txt = f"[{effect}]"
+            x0 = box_rect.x + 16 + (name_surf.get_width() if name_surf else 0) + 10
+            _blit_text(eff_txt, (x0, y), (150, 150, 255))
         y += 30
     disp_text = text
     line_start_ts_out = line_start_ts
@@ -71,7 +104,6 @@ def draw_text_panel(
             if line_full_ts_out is None:
                 line_full_ts_out = now
     for line in wrap_text(disp_text, font, box_rect.width - 32):
-        surf = font.render(line, True, (255, 255, 255))
-        canvas.blit(surf, (box_rect.x + 16, y))
+        _blit_text(line, (box_rect.x + 16, y), (255, 255, 255))
         y += 28
     return reveal, line_start_ts_out, line_full_ts_out

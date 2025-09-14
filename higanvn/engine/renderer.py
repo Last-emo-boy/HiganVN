@@ -44,6 +44,11 @@ class IRenderer:
         # Default headless behavior: print to console
         print(f"[ERROR] {message}")  # noqa: T201
 
+    # Optional UI info banner (GUI renderers may override)
+    def show_banner(self, message: str, color: tuple[int, int, int] | None = None) -> None:
+        # Default headless behavior: print to console
+        print(f"[INFO] {message}")  # noqa: T201
+
     # Optional hooks used by Engine for saves/back; GUI renderers may implement.
     def set_quicksave_hook(self, fn):
         pass
@@ -61,6 +66,17 @@ class IRenderer:
         pass
 
     def set_get_save_dir(self, fn):
+        pass
+    def set_list_slots_hook(self, fn):
+        pass
+    def set_delete_slot_hook(self, fn):
+        pass
+    def set_jump_to_label_hook(self, fn):
+        """Optional: allow UI to request jumping to a given label."""
+        pass
+
+    # Optional: allow external modules (e.g., Engine) to add debug providers
+    def add_debug_provider(self, name: str, fn):
         pass
 
     def reset_state(self) -> None:
@@ -177,6 +193,9 @@ class DummyRenderer(IRenderer):
 
     def show_error(self, message: str) -> None:
         print(f"[ERROR] {message}")  # noqa: T201
+
+    def show_banner(self, message: str, color: tuple[int, int, int] | None = None) -> None:
+        print(f"[INFO] {message}")  # noqa: T201
 
     def open_slots_menu(self, mode: str = "load") -> Optional[int]:
         try:

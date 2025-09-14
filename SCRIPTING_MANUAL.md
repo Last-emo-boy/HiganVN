@@ -77,6 +77,7 @@
 
 - 执行过程中若脚本语法或越权被拒绝，在严格模式下会抛错；在非严格模式下会忽略该错误继续运行。
 - 存档包含 `vars` 字典，快速读档/槽位读档会恢复变量并通过“快速回放”重建界面状态，保证可重现。
+- 综合示例可参考仓库内 `scripts/demo.vns`（含 SET/IF、SWITCH、内联与多行 SCRIPT 的组合用法）。
 
 ---
 
@@ -126,4 +127,4 @@
 说明：从上至下匹配第一个 `CASE` 值等于 `expr` 的分支并跳转；若无匹配且存在 DEFAULT，则跳转 DEFAULT；`ENDSWITCH` 用于显式结束开关块（遇到非相关命令也会自动结束）。
 
 4) 示例脚本
-- 可直接运行 `scripts/script_engine_demo.vns` 体验：包含 `SCRIPT`（内联与多行）、`{var}` 插值、`IF/ELSE`、`SWITCH/CASE/DEFAULT` 的综合用法。
+- 可直接运行 `scripts/demo.vns` 体验：包含 `SCRIPT`（内联与多行）、`{var}` 插值、`IF/ELSE`、`SWITCH/CASE/DEFAULT` 的综合用法。

@@ -26,7 +26,17 @@ def ask_choice(
         x_off = (win_w - dst_w) // 2
         y_off = (win_h - dst_h) // 2
 
-        menu_rect = pygame.Rect(50, 100, LOGICAL_SIZE[0] - 100, 40 * len(choices) + 20)
+        # dynamic menu width based on content
+        max_w = 0
+        for i, (txt, _tgt) in enumerate(choices):
+            w, _ = font.size(f"{i+1}. {txt}")
+            if w > max_w:
+                max_w = w
+        menu_w = min(LOGICAL_SIZE[0] - 100, max_w + 60)
+        menu_h = 44 * len(choices) + 20
+        menu_x = (LOGICAL_SIZE[0] - menu_w) // 2
+        menu_y = max(80, (LOGICAL_SIZE[1] - menu_h) // 3)
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -60,20 +70,41 @@ def ask_choice(
                         idx = (cy - menu_rect.y - 10) // 40
                         if 0 <= idx < len(choices):
                             return idx
+            if event.type == pygame.MOUSEWHEEL:
+                # scroll wheel to navigate
+                if event.y > 0:
+                    selected = (selected - 1) % len(choices)
+                elif event.y < 0:
+                    selected = (selected + 1) % len(choices)
 
         render_base(flip=False, tick=False)
-        pygame.draw.rect(canvas, (0, 0, 0), menu_rect)
+        # darken background for readability
+        ov = pygame.Surface(LOGICAL_SIZE, pygame.SRCALPHA)
+        ov.fill((0, 0, 0, 100))
+        canvas.blit(ov, (0, 0))
+        # menu panel
+        panel = pygame.Surface((menu_rect.width, menu_rect.height), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 150))
+        canvas.blit(panel, (menu_rect.x, menu_rect.y))
         pygame.draw.rect(canvas, (255, 255, 255), menu_rect, 2)
         y = menu_rect.y + 10
         for i, (txt, _tgt) in enumerate(choices):
+            row_rect = pygame.Rect(menu_rect.x + 10, y, menu_rect.width - 20, 40)
             if i == selected:
-                hi = pygame.Surface((menu_rect.width - 20, 36), pygame.SRCALPHA)
-                hi.fill((70, 110, 180, 120))
-                canvas.blit(hi, (menu_rect.x + 10, y))
-            color = (0, 255, 0) if i == selected else (255, 255, 255)
+                hi = pygame.Surface((row_rect.width, row_rect.height), pygame.SRCALPHA)
+                hi.fill((90, 140, 220, 140))
+                canvas.blit(hi, (row_rect.x, row_rect.y))
+                try:
+                    pygame.draw.rect(canvas, (200, 220, 255), row_rect, 2)
+                except Exception:
+                    pass
+            color = (0, 255, 0) if i == selected else (240, 240, 240)
+            arrow = "▶" if i == selected else "  "
+            label_surf = font.render(arrow, True, color)
+            canvas.blit(label_surf, (row_rect.x + 6, row_rect.y + 6))
             surf = font.render(f"{i+1}. {txt}", True, color)
-            canvas.blit(surf, (menu_rect.x + 16, y + 4))
-            y += 40
+            canvas.blit(surf, (row_rect.x + 28, row_rect.y + 6))
+            y += 44
 
         scaled = pygame.transform.smoothscale(canvas, (dst_w, dst_h))
         screen.fill((0, 0, 0))

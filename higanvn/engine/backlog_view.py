@@ -28,6 +28,8 @@ def draw_backlog(
     overlay = pygame.Surface(LOGICAL_SIZE, pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 140))
     canvas.blit(overlay, (0, 0))
+    # content area margin and width limit
+    margin_x = 60
     y = 60
     max_lines = 18
     hist = history
@@ -36,14 +38,28 @@ def draw_backlog(
     else:
         start = max(0, min(view_idx, len(hist) - 1) - max_lines + 1)
     end = min(len(hist), start + max_lines)
+    # header with underline
     title = font.render("Backlog", True, (240, 240, 240))
-    canvas.blit(title, (40, 24))
+    canvas.blit(title, (margin_x, 24))
+    try:
+        pygame.draw.line(canvas, (220, 220, 220), (margin_x, 52), (LOGICAL_SIZE[0]-margin_x, 52), 1)
+    except Exception:
+        pass
     for i in range(start, end):
         line = hist[i]
         name = line.name or ""
         text = f"{name}: {line.text}" if name else line.text
         color = (255, 255, 160) if (view_idx == -1 and i == len(hist) - 1) or (view_idx == i) else (230, 230, 230)
-        for wrapped in wrap_text(text, font, LOGICAL_SIZE[0] - 80):
+        # draw each entry block with a subtle separator
+        lines = wrap_text(text, font, LOGICAL_SIZE[0] - 2*margin_x)
+        for wrapped in lines:
             surf = font.render(wrapped, True, color)
-            canvas.blit(surf, (40, y))
+            canvas.blit(surf, (margin_x, y))
             y += 28
+        # extra spacing between entries
+        y += 10
+        try:
+            pygame.draw.line(canvas, (80, 80, 80), (margin_x, y), (LOGICAL_SIZE[0]-margin_x, y), 1)
+        except Exception:
+            pass
+        y += 6

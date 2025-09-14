@@ -8,9 +8,13 @@ def open_settings_menu(renderer) -> None:
 
     Draws on renderer.canvas and presents to renderer.screen.
     """
+    ui = (renderer._config.get("ui") if isinstance(renderer._config, dict) else {}) or {}
     options = [
         ("自动播放", "toggle_auto"),
         ("打字机速度", "typing_speed"),
+        ("对话框不透明度", "textbox_opacity"),
+        ("文字描边", "text_outline"),
+        ("文字阴影", "text_shadow"),
         ("返回", "back"),
     ]
     sel = 0
@@ -28,16 +32,39 @@ def open_settings_menu(renderer) -> None:
                     if options[sel][1] == "typing_speed":
                         renderer._typing_speed = max(0.0, renderer._typing_speed - 10.0)
                         renderer._typing_enabled = renderer._typing_speed > 0.0
+                    elif options[sel][1] == "textbox_opacity":
+                        val = int(ui.get("textbox_opacity", 160))
+                        val = max(0, min(255, val - 10))
+                        ui["textbox_opacity"] = val
                 elif event.key in (pygame.K_RIGHT, pygame.K_d):
                     if options[sel][1] == "typing_speed":
                         renderer._typing_speed = min(120.0, renderer._typing_speed + 10.0)
                         renderer._typing_enabled = renderer._typing_speed > 0.0
+                    elif options[sel][1] == "textbox_opacity":
+                        val = int(ui.get("textbox_opacity", 160))
+                        val = max(0, min(255, val + 10))
+                        ui["textbox_opacity"] = val
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if options[sel][1] == "toggle_auto":
                         renderer._auto_mode = not renderer._auto_mode
+                    elif options[sel][1] == "text_outline":
+                        ui["text_outline"] = not bool(ui.get("text_outline", False))
+                    elif options[sel][1] == "text_shadow":
+                        ui["text_shadow"] = not bool(ui.get("text_shadow", True))
                     elif options[sel][1] == "back":
+                        # write-back ui dict
+                        try:
+                            if isinstance(renderer._config, dict):
+                                renderer._config["ui"] = ui
+                        except Exception:
+                            pass
                         waiting = False
                 elif event.key == pygame.K_ESCAPE:
+                    try:
+                        if isinstance(renderer._config, dict):
+                            renderer._config["ui"] = ui
+                    except Exception:
+                        pass
                     waiting = False
         # Render base scene behind
         renderer._render(flip=False, tick=False)
@@ -53,6 +80,12 @@ def open_settings_menu(renderer) -> None:
                 show = f"{txt}: {'开' if renderer._auto_mode else '关'}"
             if kind == "typing_speed":
                 show = f"{txt}: {'瞬显' if not renderer._typing_enabled else int(renderer._typing_speed)}"
+            if kind == "textbox_opacity":
+                show = f"{txt}: {int(ui.get('textbox_opacity', 160))}"
+            if kind == "text_outline":
+                show = f"{txt}: {'开' if bool(ui.get('text_outline', False)) else '关'}"
+            if kind == "text_shadow":
+                show = f"{txt}: {'开' if bool(ui.get('text_shadow', True)) else '关'}"
             color = (0, 255, 0) if i == sel else (255, 255, 255)
             surf = renderer.font.render(show, True, color)
             renderer.canvas.blit(surf, (panel.x + 24, y))

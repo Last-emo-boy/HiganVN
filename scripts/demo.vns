@@ -1,5 +1,11 @@
+> TITLE "校园物语·功能演示" bg/教室.png
 > BG bg/教室.png
 > BGM bgm/校园白日.mp3 0.8
+
+# 提示: 热键 H 隐藏UI，F12 截图；Tab 打开/关闭回放栏；F5/F9 快存/快读；F7/F8 存/读档
+
+小马 (smile)「欢迎来到功能演示！从标题菜单也可以进入CG画廊和设置。」
+张鹏|学长 (think)「等会儿去天台还是图书馆？」
 
 黄昏的风吹过天台，课本的纸角翻起。
 
@@ -15,6 +21,20 @@
   张鹏|学长 (happy)「风很大，注意安全。」
   小马 [灰](angry)「我才没有怕风！」
   > SE se/开门.wav
+  :（特效演示完毕，来一段条件分支吧。）
+  > SET mood = "tsundere"
+  > IF mood == "tsundere" -> tease
+  > ELSE -> calm
+  *tease
+    小马 (angry)「哼！」
+    > GOTO tease_end
+  *calm
+    小马 (smile)「嗯。」
+  *tease_end
+  :（再来个CG，解锁后可在画廊查看）
+  > CG cg/夕阳屋顶.png
+  > WAIT 800
+  > CG None
   ? 回教室 -> back_class
 
 *go_library
@@ -22,6 +42,54 @@
   小马 (smile)「借几本工具书吧，张鹏。」
   张鹏 [惊]「啊？」
   张鹏 (think)「那就从数据结构开始？」
+  :（来段开关分支）
+  > SWITCH 2
+  > CASE 1 -> lib_a
+  > CASE 2 -> lib_b
+  > DEFAULT -> lib_c
+  *lib_a
+    :你不太可能看到这段
+    > GOTO lib_end
+  *lib_b
+    :选择了第二种情况
+    > GOTO lib_end
+  *lib_c
+    :默认分支
+  *lib_end
+  :（脚本块演示，给变量自增）
+  > SCRIPT
+    score = vars.get('score', 0)
+    score += 1
+    vars['score'] = score
+  > SCRIPT print('score=', vars.get('score'))
+  :（播放/停止语音与音效）
+  > VOICE voice/示例_一句话.ogg 0.9
+  张鹏 「测试语音对话。」
+  > VOICE None
+  > SE se/翻书.wav 0.6
 
 *back_class
+  :（收尾阶段，展示角色出场/动作/隐藏）
+  > CLEAR_STAGE
+  > OUTFIT 张鹏 male_student
+  张鹏 (smile)「到教室了。」
+  > ACTION 张鹏 wave
+  :（自动播放+等待）
+  > AUTO on
+  :自动模式会在每行后等待一段时间
+  小马 「我会在设置里改字体、描边和阴影。」
+  > WAIT 600
+  > AUTO off
+  > HIDE 张鹏
+  :（BGM 切歌和音量）
+  ♪ bgm/黄昏小调.ogg 0.7
+  > WAIT 400
   ♪ None
+  :（调用/返回示例）
+  > CALL epilogue
+  :（结束）
+  :你可以从标题菜单进入“CG 画廊”和“设置”。
+
+*epilogue
+  :尾声：感谢游玩功能演示！
+  > RETURN

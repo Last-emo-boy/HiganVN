@@ -232,7 +232,7 @@ def _cmd_pack(
                     shutil.copy2(src, dst)
                 except Exception:
                     pass
-            for cat in ("backgrounds", "cgs", "bgm", "se"):
+            for cat in ("backgrounds", "cgs", "bgm", "se", "voice"):
                 for rel in manifest.get(cat, []):
                     safe_copy(rel)
             for actor, info in (manifest.get("characters", {}) or {}).items():

@@ -17,6 +17,7 @@ from .expr import safe_eval
 import time
 from .sandbox import safe_exec
 import re
+import hashlib
 
 
  
@@ -94,6 +95,12 @@ class Engine:
             self.script_path = Path(path).resolve()
         except Exception:
             self.script_path = Path(path)
+        # inform renderer for debug provider
+        try:
+            if hasattr(self.renderer, "_engine_script_path"):
+                setattr(self.renderer, "_engine_script_path", self.script_path)
+        except Exception:
+            pass
 
     def _install_renderer_hooks(self) -> None:
         try:
@@ -130,6 +137,17 @@ class Engine:
         try:
             if hasattr(self.renderer, "set_get_save_dir"):
                 self.renderer.set_get_save_dir(lambda: self.get_save_dir())  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        # optional: list/delete hooks for slots UI
+        try:
+            if hasattr(self.renderer, "set_list_slots_hook") and self._save_store and hasattr(self._save_store, "list_slots"):
+                self.renderer.set_list_slots_hook(lambda: list(self._save_store.list_slots()))  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        try:
+            if hasattr(self.renderer, "set_delete_slot_hook") and self._save_store and hasattr(self._save_store, "delete_slot"):
+                self.renderer.set_delete_slot_hook(lambda slot: bool(self._save_store.delete_slot(int(slot))))  # type: ignore[attr-defined]
         except Exception:
             pass
 
@@ -182,6 +200,16 @@ class Engine:
         if self.ip >= len(self.program.ops):
             return False
         op = self.program.ops[self.ip]
+        # update renderer debug hooks
+        try:
+            setattr(self.renderer, "_engine_ip", int(self.ip))
+            setattr(self.renderer, "_engine_call_stack_depth", int(len(self.call_stack)))
+            # snapshot public vars shallowly (avoid large objects)
+            if isinstance(self.vars, dict):
+                snap = {k: v for k, v in self.vars.items() if isinstance(k, str) and (isinstance(v, (int, float, str, bool)) or v is None)}
+                setattr(self.renderer, "_engine_vars_snapshot", snap)
+        except Exception:
+            pass
         # pre-op event
         try:
             self.events.emit("engine.before_op", ip=int(self.ip), kind=str(op.kind))
@@ -695,6 +723,14 @@ class Engine:
                     snapshot = self.renderer.get_snapshot()  # type: ignore[attr-defined]
             except Exception:
                 snapshot = None
+            # compute script content hash for mismatch detection on load
+            try:
+                script_hash = None
+                if self.script_path and Path(self.script_path).exists():
+                    data = Path(self.script_path).read_bytes()
+                    script_hash = hashlib.sha256(data).hexdigest()
+            except Exception:
+                script_hash = None
             payload = {
                 "script": str(self.script_path) if self.script_path else None,
                 "ip": self.ip,
@@ -706,6 +742,10 @@ class Engine:
                 "label": cur_label,
                 # optional snapshot for fast restore
                 "snapshot": snapshot,
+                # textbox view state
+                "textbox": {"view_idx": getattr(self.textbox, "view_idx", -1)},
+                # script hash for mismatch detection
+                "script_hash": script_hash,
                 "version": 2,
             }
             # Prefer injected save store; fall back to legacy file path when explicit path provided
@@ -735,6 +775,7 @@ class Engine:
             ip = int(data.get("ip", 0))
             choices = data.get("choices") or []
             snapshot = data.get("snapshot") or None
+            saved_hash = data.get("script_hash")
             if not script:
                 return False
             p = Path(script)
@@ -746,9 +787,16 @@ class Engine:
             prog = parse_script(source)
             self.load(prog)
             self.script_path = p
-            # Apply snapshot if available, else fast-replay deterministically to rebuild state
+            # Check if script changed; if changed, do not trust snapshot
+            changed = False
             try:
-                if snapshot and hasattr(self.renderer, "apply_snapshot") and callable(getattr(self.renderer, "apply_snapshot")):
+                cur_hash = hashlib.sha256(p.read_bytes()).hexdigest()
+                changed = bool(saved_hash) and saved_hash != cur_hash
+            except Exception:
+                changed = False
+            # Apply snapshot if available and script unchanged, else fast-replay deterministically to rebuild state
+            try:
+                if (not changed) and snapshot and hasattr(self.renderer, "apply_snapshot") and callable(getattr(self.renderer, "apply_snapshot")):
                     # reset renderer to a clean state first
                     if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
                         self.renderer.reset_state()  # type: ignore[attr-defined]
@@ -767,6 +815,11 @@ class Engine:
                     # Rewind target by one so the saved line will be executed next
                     target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
                     self._fast_replay_to(target)
+                if changed:
+                    try:
+                        self.renderer.show_banner("脚本已变更，使用快速重放恢复状态", (200,140,40))
+                    except Exception:
+                        pass
             except Exception:
                 # Snapshot failed -> fall back to fast replay
                 try:
@@ -779,6 +832,13 @@ class Engine:
                 self._fast_replay_to(target)
             # adopt saved trace so future saves continue from here
             self.choice_trace = list(choices)
+            # restore textbox view state
+            try:
+                tb = data.get("textbox") or {}
+                vi = int(tb.get("view_idx", -1))
+                self.textbox.view_idx = vi
+            except Exception:
+                pass
             # line trace rebuilt during replay; keep as-is
             self._replay_choices = None
             return True
@@ -804,6 +864,13 @@ class Engine:
                     snapshot = self.renderer.get_snapshot()  # type: ignore[attr-defined]
             except Exception:
                 snapshot = None
+            try:
+                script_hash = None
+                if self.script_path and Path(self.script_path).exists():
+                    data = Path(self.script_path).read_bytes()
+                    script_hash = hashlib.sha256(data).hexdigest()
+            except Exception:
+                script_hash = None
             payload = {
                 "script": str(self.script_path) if self.script_path else None,
                 "ip": self.ip,
@@ -812,6 +879,8 @@ class Engine:
                 "vars": self.vars,
                 "label": cur_label,
                 "snapshot": snapshot,
+                "textbox": {"view_idx": getattr(self.textbox, "view_idx", -1)},
+                "script_hash": script_hash,
                 "version": 2,
             }
             if self._save_store and base is None:
@@ -839,6 +908,7 @@ class Engine:
             ip = int(data.get("ip", 0))
             choices = data.get("choices") or []
             snapshot = data.get("snapshot") or None
+            saved_hash = data.get("script_hash")
             if not script:
                 return False
             p = Path(script)
@@ -848,9 +918,15 @@ class Engine:
             prog = parse_script(source)
             self.load(prog)
             self.script_path = p
-            # Apply snapshot if available; otherwise fast replay
+            # Apply snapshot if available and script unchanged; otherwise fast replay
             try:
-                if snapshot and hasattr(self.renderer, "apply_snapshot") and callable(getattr(self.renderer, "apply_snapshot")):
+                changed = False
+                try:
+                    cur_hash = hashlib.sha256(p.read_bytes()).hexdigest()
+                    changed = bool(saved_hash) and saved_hash != cur_hash
+                except Exception:
+                    changed = False
+                if (not changed) and snapshot and hasattr(self.renderer, "apply_snapshot") and callable(getattr(self.renderer, "apply_snapshot")):
                     if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
                         self.renderer.reset_state()  # type: ignore[attr-defined]
                     self.renderer.apply_snapshot(snapshot)  # type: ignore[attr-defined]
@@ -865,6 +941,11 @@ class Engine:
                     self._replay_choices = list(choices)
                     target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
                     self._fast_replay_to(target)
+                if changed:
+                    try:
+                        self.renderer.show_banner("脚本已变更，使用快速重放恢复状态", (200,140,40))
+                    except Exception:
+                        pass
             except Exception:
                 try:
                     if hasattr(self.renderer, "reset_state") and callable(getattr(self.renderer, "reset_state")):
@@ -875,6 +956,12 @@ class Engine:
                 target = max(0, min(max(0, ip - 1), (len(self.program.ops) - 1) if self.program else 0))
                 self._fast_replay_to(target)
             self.choice_trace = list(choices)
+            try:
+                tb = data.get("textbox") or {}
+                vi = int(tb.get("view_idx", -1))
+                self.textbox.view_idx = vi
+            except Exception:
+                pass
             # line trace rebuilt during replay; keep as-is
             self._replay_choices = None
             return True
