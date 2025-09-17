@@ -1,4 +1,4 @@
-# SEU-monogatari
+# HiganVN
 
 HiganVN 最小可行版本（MVP）脚手架（初期支持无图形 headless），目标是迭代成为一个具备自然 DSL 的 Python 面向对象 Galgame 引擎。
 
