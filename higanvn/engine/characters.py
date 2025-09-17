@@ -25,6 +25,11 @@ class CharacterLayer:
         # debug caches
         self._last_rects = {}  # type: Dict[str, pygame.Rect]
         self._last_centers = {}  # type: Dict[str, Tuple[int, int]]
+        # strict mode (disable asset fallbacks when True)
+        self._strict_mode = False
+
+    def set_strict_mode(self, strict: bool) -> None:
+        self._strict_mode = bool(strict)
 
     def set_outfit(self, actor: str, outfit: Optional[str]) -> None:
         """Set current outfit subfolder for actor; None to reset to root.
@@ -47,17 +52,29 @@ class CharacterLayer:
         if actor in self.characters:
             return
         outfit = self._outfits.get(actor)
-        base_path = None  # type: Optional[str]
-        try:
-            if outfit:
-                base_path = resolve_path(f"ch/{actor}/{outfit}/base.png")
-        except Exception:
-            base_path = None
-        if not base_path:
-            base_path = resolve_path(f"ch/{actor}/base.png")
-        try:
-            base = pygame.image.load(base_path).convert_alpha()
-        except Exception:
+        base: Optional[Surface] = None
+        # Try outfit-specific base first if outfit provided
+        if outfit:
+            try:
+                p1 = resolve_path(f"ch/{actor}/{outfit}/base.png")
+                base = pygame.image.load(p1).convert_alpha()
+            except Exception:
+                base = None
+            # In strict mode, do not fallback to root if an outfit was explicitly set
+            if base is None and not self._strict_mode:
+                try:
+                    p2 = resolve_path(f"ch/{actor}/base.png")
+                    base = pygame.image.load(p2).convert_alpha()
+                except Exception:
+                    base = None
+        else:
+            # No outfit specified: use root base directly
+            try:
+                p = resolve_path(f"ch/{actor}/base.png")
+                base = pygame.image.load(p).convert_alpha()
+            except Exception:
+                base = None
+        if base is None:
             base = make_placeholder(actor)
         self.characters[actor] = (base, None)
 
@@ -77,14 +94,26 @@ class CharacterLayer:
                 pose = pygame.image.load(p1).convert_alpha()
             except Exception:
                 pose = None
-        if pose is None:
+            # Only fallback to root pose when not strict
+            if pose is None and not self._strict_mode:
+                try:
+                    p2 = resolve_path(f"ch/{actor}/pose_{emotion}.png")
+                    pose = pygame.image.load(p2).convert_alpha()
+                except Exception:
+                    pose = None
+        else:
+            # No outfit specified: use root pose directly
             try:
                 p2 = resolve_path(f"ch/{actor}/pose_{emotion}.png")
                 pose = pygame.image.load(p2).convert_alpha()
             except Exception:
                 pose = None
         if pose is None:
-            pose = make_pose_ph(str(emotion))
+            # Fallback behavior: if not strict, use base (i.e., keep pose None). In strict, use placeholder.
+            if self._strict_mode:
+                pose = make_pose_ph(str(emotion))
+            else:
+                pose = None  # render will use base
         self.characters[actor] = (base, pose)
         self._pose_names[actor] = str(emotion)
 
@@ -107,14 +136,26 @@ class CharacterLayer:
                 img = pygame.image.load(p1).convert_alpha()
             except Exception:
                 img = None
-        if img is None:
+            # Only fallback to root action when not strict
+            if img is None and not self._strict_mode:
+                try:
+                    p2 = resolve_path(f"ch/{actor}/action_{action}.png")
+                    img = pygame.image.load(p2).convert_alpha()
+                except Exception:
+                    img = None
+        else:
+            # No outfit specified: use root action directly
             try:
                 p2 = resolve_path(f"ch/{actor}/action_{action}.png")
                 img = pygame.image.load(p2).convert_alpha()
             except Exception:
                 img = None
         if img is None:
-            img = make_pose_ph(f"action:{action}")
+            # Fallback: if not strict, use base/pose (i.e., do not set action image). In strict, show placeholder.
+            if self._strict_mode:
+                img = make_pose_ph(f"action:{action}")
+            else:
+                img = None
         self._actions[actor] = img
         self._action_names[actor] = str(action)
 
@@ -174,8 +215,27 @@ class CharacterLayer:
             dx, dy = animator.offset(now_ms, actor, LOGICAL_SIZE[0], LOGICAL_SIZE[1])
             cx, cy = int(x + dx), int(y + dy)
 
+            # If action exists, render it INSTEAD of base/pose (hide base/pose)
+            act = self._actions.get(actor)
+            if act is not None:
+                a_s = scale_to_height(act, int(LOGICAL_SIZE[1] * eff_scale))
+                recta = a_s.get_rect(center=(cx, cy))
+                if self.active_actor and actor != self.active_actor:
+                    dim_a = a_s.copy()
+                    dim_a.fill((0, 0, 0, 80), special_flags=pygame.BLEND_RGBA_SUB)
+                    canvas.blit(dim_a, recta)
+                else:
+                    canvas.blit(a_s, recta)
+                try:
+                    self._last_rects[actor] = recta.copy()
+                    self._last_centers[actor] = (cx, cy)
+                except Exception:
+                    pass
+                continue  # skip rendering body when action is present
+
+            # Otherwise, render base/pose as usual
             body = pose if pose is not None else base
-            if body:
+            if body is not None:
                 b = scale_to_height(body, int(LOGICAL_SIZE[1] * eff_scale))
                 rect = b.get_rect(center=(cx, cy))
                 if self.active_actor and actor != self.active_actor:
@@ -189,21 +249,6 @@ class CharacterLayer:
                     self._last_centers[actor] = (cx, cy)
                 except Exception:
                     pass
-
-            act = self._actions.get(actor)
-            if act:
-                a_s = scale_to_height(act, int(LOGICAL_SIZE[1] * eff_scale))
-                recta = a_s.get_rect(center=(cx, cy))
-                if self.active_actor and actor != self.active_actor:
-                    dim_a = a_s.copy()
-                    dim_a.fill((0, 0, 0, 80), special_flags=pygame.BLEND_RGBA_SUB)
-                    canvas.blit(dim_a, recta)
-                else:
-                    canvas.blit(a_s, recta)
-                    try:
-                        self._last_rects[actor] = recta.copy()
-                    except Exception:
-                        pass
 
     def last_rects(self) -> Dict[str, pygame.Rect]:
         return dict(self._last_rects)

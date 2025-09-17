@@ -46,6 +46,12 @@ class Engine:
         self.textbox = Textbox()
         # inject textbox and hooks into renderer if supported
         self._install_renderer_hooks()
+        # propagate strictness to renderer so it can disable asset fallbacks
+        try:
+            if hasattr(self.renderer, "set_strict_mode") and callable(getattr(self.renderer, "set_strict_mode")):
+                self.renderer.set_strict_mode(bool(self.strict))  # type: ignore[attr-defined]
+        except Exception:
+            pass
         # simple variable store for SET/IF
         self.vars = {}
         # conditional chain state for IF/ELSEIF/ELSE

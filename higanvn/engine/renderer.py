@@ -75,6 +75,10 @@ class IRenderer:
         """Optional: allow UI to request jumping to a given label."""
         pass
 
+    # Optional: enable strict mode (disable asset fallbacks)
+    def set_strict_mode(self, strict: bool) -> None:
+        pass
+
     # Optional: allow external modules (e.g., Engine) to add debug providers
     def add_debug_provider(self, name: str, fn):
         pass
@@ -223,3 +227,10 @@ class DummyRenderer(IRenderer):
             return m.get(raw.strip(), "start")
         except Exception:
             return "start"
+
+    def set_strict_mode(self, strict: bool) -> None:
+        try:
+            setattr(self, "_strict_mode", bool(strict))
+            # If dummy had a char layer in future, we would propagate here.
+        except Exception:
+            pass

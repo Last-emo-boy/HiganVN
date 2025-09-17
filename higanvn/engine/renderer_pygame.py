@@ -259,6 +259,12 @@ class PygameRenderer(IRenderer):
         self._slots = read_slots_config(self._asset_ns, LOGICAL_SIZE)
         # character layer manages characters and active actor
         self.char_layer = CharacterLayer(self._slots)
+        try:
+            # ensure char layer inherits current strict flag
+            if hasattr(self.char_layer, 'set_strict_mode'):
+                self.char_layer.set_strict_mode(getattr(self, '_strict_mode', False))  # type: ignore[attr-defined]
+        except Exception:
+            pass
         # ui config
         try:
             self._config = load_config(lambda: self._get_save_dir() if callable(self._get_save_dir) else Path("save"))
@@ -308,6 +314,7 @@ class PygameRenderer(IRenderer):
         # external debug providers and jump hook placeholders
         self._ext_debug_providers = {}
         self._jump_to_label_hook = None
+    
 
     # --- asset path helpers (prefer standardized folders and per-script namespace) ---
     def _resolve_asset(self, path: str, prefixes: Optional[list[str]] = None) -> str:
@@ -1063,3 +1070,12 @@ class PygameRenderer(IRenderer):
 
     def show_title_menu(self, title: Optional[str] = None, bg_path: Optional[str] = None) -> Optional[str]:  # type: ignore[override]
         return title_show(self, title, bg_path)
+
+    # --- engine-managed flags ---
+    def set_strict_mode(self, strict: bool) -> None:  # type: ignore[override]
+        self._strict_mode = bool(strict)
+        try:
+            if hasattr(self, 'char_layer') and hasattr(self.char_layer, 'set_strict_mode'):
+                self.char_layer.set_strict_mode(self._strict_mode)  # type: ignore[attr-defined]
+        except Exception:
+            pass

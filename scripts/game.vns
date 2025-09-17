@@ -1,0 +1,551 @@
+
+
+# 第一章：开学（chapter_1_opening.vns）
+
+*chapter1_opening
+> SET lunch = ""            # "canteen" | "wushu"
+> SET n_combo = false       # 是否点“超级无敌n拼饭”
+> SET quiz_choice = ""      # "self" | "world"
+> SET knees_pain = 0        # 膝盖疼痛计数（回忆里的蹲）
+> SET phone_hidden = false  # 是否把手机塞进桌肚（课堂瞬间）
+> FADE out 600
+> BG bg/campus_walk_day.jpg
+> FADE in 600
+♪ bgm/campus_morning.ogg 0.6
+> OUTFIT Rita outfit_school_summer   # 开学：校服/夏秋装（若无素材会自动回退）
+
+:第一章：开学
+Rita (think)「终于开学了……」
+:看着这片已经有些熟悉的校园，Rita不自觉放慢了脚步。教学楼外墙的浅色砖面、走廊里隐约传来的讨论声、公告栏上叠着又叠的迎新海报——这些零碎的场景像拼图一样，慢慢拼回到她脑海中“大学”那张模糊却期待已久的底片上。
+:只是，刚刚结束的三周军训像在底片上压了一层厚重的底色：烈日、口号、汗味与整齐划一的步伐，挥之不去。她从没经历过这么长时间、这么高强度的训练。每日的集合、转体、正步、拉歌，像重复播放的循环曲，生理和心理一起被按在了节拍器上。
+:作为一名外语保送生，高三上学期保送考试结束后，她就再没参加过如此“大编制”的集体活动了。重新适应这股“齐步走”的步调，谈不上容易。
+Rita (tired)「（回想起来，军训也真是不简单……）」
+
+# —— 开始回忆 —— 
+> FADE out 500
+> BG bg/auditorium_night.jpg
+> FADE in 500
+♪ bgm/auditorium_soft.ogg 0.45
+Rita 「（今晚也是在大礼堂活动，不用夜训，真是太好了。）」
+:平时晚间要么体能训练，要么正步加练；只要安排到大礼堂听讲座，身上那点肌肉的酸胀就像被赦免了一样。至少，不用再在操场上来回磨膝盖与脚跟——这一点对Rita来说，已足够“幸福”。
+
+:可事情真的会如此顺利吗？她刚跨出宿舍楼，就看见教官站在路口，旁边已经有一队同学整整齐齐地列开。
+> FADE out 300
+> BG bg/playground_night.jpg
+> FADE in 300
+♪ bgm/drill_march.ogg 0.5
+Rita (surprised)「（糟了。）」
+:人群很快到齐，嗓门极稳的教官开口了。
+教官A: ……一排有人带手机了。我在听讲座前面已经关照过你们了，带手机被抓住会是什么后果的。
+:Rita其实在讲座时就看见前排几个人偷偷低头点着屏幕。但她没想到，这几位真的会蠢到被教官当场逮个正着。
+教官A: 全体，蹲！
+> SE se/swoosh_crowd_squat.wav 0.9
+:“唰——”几百号人像同一根弹簧被同时压下，操场边上的水泥地一下子被一片下蹲的黑压压覆盖。远远望过去，竟有种“波浪凝固”的壮观。
+> SET knees_pain = knees_pain + 10
+:好在只是十分钟。可就算是十分钟，对膝盖韧带一直不太好的Rita来说，也像被钟表慢慢磨着，针尖一点一点扎在关节里。她咬牙挺着，心里默数，一遍遍盼着那句“起立”。
+
+# —— 结束回忆 —— 
+> CLEAR_STAGE
+> FADE out 500
+> BG bg/campus_walk_day.jpg
+> FADE in 500
+♪ bgm/campus_morning.ogg 0.6
+Rita (think)「（真是一帮子神人。不过话说回来，也算是一次特别的体验了。）」
+
+> FADE out 300
+> BG bg/fivefour_building_front.jpg
+> FADE in 300
+Lunar (think): 教室就在这里？
+Weed (think): 五四楼201，应该就是这里了。
+:Weed和Lunar是Rita的室友。三周军训像一台勉力运转的打磨机，把三个人从“点头之交”磨成了顺手的伙伴——一起集合、一起报数、一起吐槽鞋后跟磨泡；或许这就是军训“意义”的一部分。
+:九点五十，Rita迎来了自己第一节工数课。
+> CLEAR_STAGE
+> FADE out 200
+> BG bg/classroom_morning.jpg
+> FADE in 200
+♪ bgm/classroom_quiet.ogg 0.4
+:第一节课的内容很“新生式”——老师对课程做了个全景式概述，强调学习节奏、作业要求和考试方式，板书清清爽爽，新知识却一个没讲。
+> SE se/bell_ring.wav 0.8
+:11点半，清脆的下课铃把第一节课切了个整齐的句号。
+> ACTION Rita None
+> ACTION Lunar None
+> ACTION Weed None
+Rita (happy): 中饭吃啥？
+Lunar (think): 中饭吃啥？
+Weed (think): 中饭吃啥？
+
+# —— 中午吃什么？（分支）——
+? 吃超级无敌未知黑暗料理沙塘园食堂。 -> lunch_canteen
+? 吃在小巷子里的吴叔烧腊。 -> lunch_wushu
+
+*lunch_canteen
+> SET lunch = "canteen"
+> FADE out 250
+> BG bg/canteen_noon.jpg
+> FADE in 250
+♪ bgm/canteen_busy.ogg 0.55
+> ACTION Rita tray_pick
+> ACTION Lunar tray_pick
+> ACTION Weed tray_pick
+Rita (think): 找个民族窗口吃一顿得了。
+Lunar (think): 食堂有什么好吃的？军训吃了三周还没吃腻吗？
+:（剩余选项：2. 吃在小巷子里的吴叔烧腊）
+> ACTION Rita eat
+> ACTION Lunar eat
+> ACTION Weed eat
+> GOTO after_lunch_prep
+
+*lunch_wushu
+> SET lunch = "wushu"
+> FADE out 300
+> BG bg/campus_alley_entry.jpg
+> FADE in 300
+♪ bgm/walk_alley_light.ogg 0.45
+:三人跟着导航拐进小路，转角入“蓁巷”，再向右一折，就到了——“吴叔烧腊”。
+> FADE out 200
+> BG bg/wushu_shop_front.jpg
+> FADE in 200
+> OUTFIT 老板娘 outfit_wushu_staff
+> SE se/crowd_chatter_indoor.wav 0.6
+:店面不大，门口却人头攒动。里头坐满了二十来岁的面孔，背包靠椅，水杯排成一线，军训时见过的身影也零零散散在其中。空气里是一种热油遇到糖的香——烧味裹着热气，像一只无形的手轻轻拽着人的胃。几人迫不及待落座，翻看墙上的招牌。
+Rita (surprised)「（！）」
+:招牌上醒目的几行字差点把她眼睛糊住：烧鸭、烧鹅、叉烧、澳门烧肉、手撕鸡、豉油鸡……“全家桶超级无敌n拼饭”赫然在列，后面那串感叹号仿佛在挑衅。
+
+# —— 是否选择 n 拼饭 —— 
+? 【是】 -> n_combo_yes
+? 【否】 -> n_combo_no
+
+*n_combo_yes
+> SET n_combo = true
+Rita (happy): 老板娘，我要一份那个“超级无敌n拼饭”！
+老板娘: 好嘞，来一个n拼饭！小伙子，一小时内吃完就能免单哦～
+> SE se/plate_down.wav 0.7
+:（饭端上来了）
+> ACTION Rita eat
+> ACTION Lunar eat
+> ACTION Weed eat
+Rita (angry): 我测这天喵，这么多吃个 damn 啊……算了，为了这50块钱我拼了！
+> SE se/sizzle_roast.wav 0.6
+:碟碟叠叠的肉像小山，油光在灯下跳，米饭堆得像白色平台。Rita先从最顺口的切起，筷子起落带着点冲锋的劲头。前十分钟气势如虹，后十分钟开始放缓，再之后每一口都像谈判——嘴巴与胃在桌下“签协议”。
+:时间像沙子漏过去，半小时边缘悄悄越线。
+老板娘: 小伙子还是不行啊，半小时已经过了～
+Rita (tired): ……
+:（中午的“蹲坑”，只有Rita一人独自呻吟，扑哧扑哧。胜负已分，五十块未省。）
+> ACTION Rita None                   # 清除动作层
+> ACTION Lunar None
+> ACTION Weed None
+> HIDE 老板娘
+> GOTO after_lunch_prep
+
+*n_combo_no
+> SET n_combo = false
+Rita (think): （算了，还是点些正常的吧。）
+Rita (happy): 老板娘，来份叉烧饭拼鸭腿！
+老板娘: 好嘞～
+> SE se/plate_down.wav 0.7
+:没一会儿，叉烧鸭腿双拼就上桌了。
+> ACTION Rita eat
+> ACTION Lunar eat
+> ACTION Weed eat
+Rita (happy): （这鸭腿，靓啊——表皮还带着微微的脆声，油润得刚好，热气透着香；这叉烧肥瘦相间，边缘微微焦，甜里带咸，正！）
+:十分钟不到，一盘饭被Rita干净利落地清空。她抿了抿嘴角，带着一点还没擦掉的油光，跟同伴一起走出店门。
+> ACTION Rita None
+> ACTION Lunar None
+> ACTION Weed None
+> HIDE 老板娘
+> GOTO after_lunch_prep
+
+*after_lunch_prep
+> ACTION Rita None
+> ACTION Lunar None
+> ACTION Weed None
+> CLEAR_STAGE
+> FADE out 300
+> BG bg/classroom_afternoon.jpg
+> FADE in 300
+> OUTFIT 老师 outfit_lecturer
+♪ bgm/history_class_murmur.ogg 0.4
+:下午两点，中国近代史。
+老师: 近代中国发展的过程中……咕咕嘎嘎咕咕嘎嘎——
+:讲台上语速稳，手势清，节奏铿锵；讲台下，却像被一层轻雾笼着：有人托腮看窗外，有人翻着书页却不真看，有人目光定在某个并不存在的焦点——百人的教室，真正把注意力安在“此时此刻”的，怕是不足五人。能拿着课本的，用两只手也数得过来。
+老师: 咕咕嘎嘎咕咕嘎嘎。来，这个问题我们找一个同学回答一下。
+> ACTION 老师 point
+:（空气忽然凝固了一下。）
+:老师低头缓缓翻名单，像在“黄金矿工”里挪动钩子，挑选那块看上去最顺手的金块。
+老师: 来，这个Rita同学，你起来回答一下这个问题。
+:我们的Rita在干什么？她正沉浸在炉石传说的回合里，指尖停在屏幕边缘。
+Rita (surprised)「（！）」 
+> SET phone_hidden = true
+> ACTION Rita hide_phone
+> SE se/phone_hide_into_desk.wav 0.6
+:听到自己的名字，她反应极快，手机“嗖”地一塞进桌肚，站起身。
+Rita (embarrassed): 呃……
+> ACTION Rita None
+:荧幕上滚动的“散装中文”此刻像被换了字符集——每个字都认识，连在一起却陌生。
+Rita (think): （要是高中历史课好好听就好了，阿弥诺斯……欸，你知道老师在讲哪里吗？）
+Weed: 嗯？什么？
+Rita (embarrassed): （没救了，这家伙灵魂出窍了……只能硬着头皮问问在讲哪里了。）老师，是下面那个吗？
+老师: 很好，Rita同学，真是太棒了。我就知道我们班上肯定有这样的同学——就是下面那个。上面那个方向因为不符合我们国家当时的国情，如果走那条道路的话……很好，坐下吧。
+Rita (surprised): （？？？）
+:不出所料的“狗屎运”，也要摆出不动如山的“ez”嘴型。她坐回去，迎着几位室友带着差异与惊讶的目光。
+> SE se/bell_ring.wav 0.8
+:（近代史课程结束）
+> ACTION 老师 None
+> HIDE 老师
+> HIDE 老师
+
+> FADE out 250
+> BG bg/classroom_doorway_booth.jpg
+> FADE in 250
+> OUTFIT 摊位学生 outfit_campus_hoodie
+> SE se/crowd_chatter_light.wav 0.5
+:教室门口，一个摊位围了不少人。
+Rita (think): （什么东西？走过去看看吧。）
+摊位学生 (promo_smile): 大家好，这是我们心理专业的一份调查问卷，希望大家踊跃参与一下哦～
+Rita (think): （心理学吗，那很有意思了。既然大家都在围，我也看看是怎么回事。）
+> SE se/paper_pick.wav 0.6
+> ACTION 摊位学生 None
+> HIDE 摊位学生
+> HIDE 摊位学生
+:她拿起一张A4白纸，上面是一些常见的选择题：情绪、习惯、偏好……每一题都很“标准”。直到最后，第25题把目光牢牢拽住——
+> CG cg/questionnaire_q25.png
+:如果你有能力，而且对这个世界深感不满，那么你会改变世界还是自己？
+Rita: （日式的禅问答吗？还带点中二。我要是有能力改变世界，我还在这里读什么书啊？不过既然前面都认真填了，这个“恶趣味”的问题也认真答一下吧。）
+
+# —— 问卷第25题选择 —— 
+? 改变自己 -> quiz_self
+? 改变世界 -> quiz_world
+
+*quiz_self
+> SET quiz_choice = "self"
+> CG None
+:（选择选项“改变自己”）
+> CLEAR_STAGE
+> GOTO chapter1_outro
+
+*quiz_world
+> SET quiz_choice = "world"
+> CG None
+:（选择选项“改变世界”）
+# （选择选项2 进入分支1/3）
+> CLEAR_STAGE
+> GOTO chapter1_outro
+
+*chapter1_outro
+♪ bgm/campus_evening_walk.ogg 0.5
+Rita (think): （今天也差不多结束了，吃个晚饭去晚自习了……）
+> FADE out 700
+> BG bg/campus_evening_path.jpg
+> FADE in 700
+# —— 第一章·第一段 结束 —— 
+
+# 第二章：期中考试（chapter_2_midterm.vns）
+
+*chapter2_midterm
+> SET play_billiards = false     # 是否与Lunar去打台球
+> SET midterm_math_band = ""     # 数学期中成绩段："70s" / "80s" / "90s"
+> SET midterm_jp_feel = "safe"   # 日语科目主观感受
+> SET focus_drift = 0            # 注意力漂移计数
+> CLEAR_STAGE
+> FADE out 600
+> BG bg/dorm_desk_morning.jpg
+> FADE in 600
+♪ bgm/campus_noon.ogg 0.55
+
+Rita (think)「（感觉大学生活和高中没什么区别啊。上了大学也要期中考吗……）」
+:两个月的大学生活一晃而过，时间像被切成了很整齐的课表格子，叮叮当当往前推。检验“成果”的关卡也如期而至。与高中那种“铃声一响神经紧绷”的紧张不同，大学的学习节奏像被放大了一圈：课堂更大、队伍更长、要求更像是“自己对自己负责”。
+:这次期中只考两门：日语和数学。  
+:日语对Rita是一片相对安稳的海面——毕竟他是语言保送生，音变、活用、助词的坑这些年踩得够多，走起来心里有数。数学就没那么稳当了。虽然还没上到抽象的高地，眼下的内容也还能顶住，但“不是强项”这个事实稳稳地横在那儿。
+:可真正让Rita不适应的，不是知识本身，而是方式。
+> FADE out 300
+> BG bg/large_lecture_hall.jpg
+> FADE in 300
+♪ bgm/lecture_hum.ogg 0.45
+:没有紧绷得能弹出声音的课堂氛围；一间容纳上百人的教室，像一座轻轻嗡鸣的港口。老师不点名，座位像海面上的浮标，来或不来都不会激起太大的涟漪。台下有人认真记笔记，也有人抱着手机或Pad大摸特摸——弹窗、消息和流媒体在屏幕里轮番演出。旷课，这个在体制内高中几乎等同“叛逆”的词，在这里并不踩线。
+:课后更自由。留下的只是习题清单，没有周考，没有一叠叠“额外拔高”的练习卷。有人收作业，也只是例行收一下——到底写了多少、投入了几分力，只有自己心里清楚。  
+:听上去很美，可这几乎打碎了Rita十余年来形成的学习惯性。
+> FADE out 250
+> BG bg/dorm_desk_night.jpg
+> FADE in 250
+♪ bgm/study_focus.ogg 0.4
+:刚军训完那阵子，Rita还能百分百投入：心不旁骛、笔不离手。可周围的放松像一股无形的风，吹得人的专注渐渐偏航——从“偶尔瞟一眼微信”到“刷一刷短视频”，嘴上说“我在听”，但态度已悄悄变了形。
+> SET focus_drift = focus_drift + 1
+:Rita也知道这样不对。
+:他骨子里还是个“文科生板子”。高中曾学过理科竞赛，也拿过奖，可那更像是刷题经验的延伸——不是对原理本质的沉潜。进入竞赛圈后见过真正的理科高手，Rita更明白：思维的底层骨架不同，努力的方向也不同。  
+:他在理科能混出些成绩，多半靠量的累积、题感的敏锐，而不是把原理掰碎揉烂的那套理解。到了大学也一样：要上课、要练习，缺哪头都不成。
+:偏偏他忍不住。尤其是“上课摸了鱼、课后作业还顺利写完”的几次偶然成功，极容易制造一种飘飘然的错觉：似乎即便分了心也不耽误效率。虽然他清楚眼下内容简单、课堂节奏缓慢，可侥幸心理总会慢慢浮上来。
+:好在，期中将至——这一关像一道清晰的警戒线，把散乱的注意力往回拽。工科数学分析5个学分、平时期中占比30%，这可不会和人开玩笑。
+:虽然平时学得马虎，但学校有官方的历年真题。只要平时不至于“离谱到天边”，考试多半不至于翻车。
+Rita 「（极限就这么几个题型，拉格朗日中值定理只会放在最后一个大题上；就算错一个小问也就扣个3分。真做不出来也不至于离谱……）」 
+> SE se/book_close.wav 0.7
+:想到这儿，他合上真题册，整了整桌面，把散在桌上的笔和橡皮塞进包里，顺手点亮了手机屏。
+> SE se/phone_unlock.wav 0.6
+
+:顺带说说宿舍其他几位。  
+:Lunar是个“卷哥”——主要爱好似乎只剩“泡泡妞”。Weed像一团雾，行踪神秘，常常说不见就不见。
+> FADE out 250
+> BG bg/dorm_room_evening.jpg
+> FADE in 250
+:Rita环顾宿舍一周，Weed并不在。饭点快到了，他给Lunar发消息，约一起吃饭。  
+> SE se/message_send.wav 0.6
+:两人分别从宿舍、图书馆出发，在校门口碰头。
+> FADE out 250
+> BG bg/campus_gate_evening.jpg
+> FADE in 250
+♪ bgm/campus_walk_evening.ogg 0.5
+Lunar: 咱吃啥去嘞？去不去吃食堂。
+Rita (angry)「（就沙塘园破食堂吃个damn啊……）」 
+:这句吐槽终究只在心里打了个转，他还是换了个问法：
+Rita: 真想吃食堂吗？不去吃吴叔，或者萨莉亚？
+Lunar: 没米了，真得去食堂嘬两口了。
+:Rita在Lunar视野盲区里翻了个白眼，但嘴上还是顺着点了头。  
+> FADE out 200
+> BG bg/canteen_evening.jpg
+> FADE in 200
+♪ bgm/canteen_busy.ogg 0.55
+> SE se/tray_pick.wav 0.6
+> ACTION Rita tray_pick
+> ACTION Lunar tray_pick
+:Lunar要了一份“自选泔水”，Rita去民族窗口点了一份看着就“不怎么干净”的炒饭。或许是复习的压力，两人没怎么说话，三两下把晚饭解决了。
+> SE se/chopsticks_fast.wav 0.5
+> ACTION Rita eat
+> ACTION Lunar eat
+Rita: 你等会还是去图书馆吗？
+:他平时其实懒得问。多数时候自己一个人在宿舍，早就习惯了。老追着问别人行踪也不太体面。可Lunar一般中午睡、晚上回宿舍，其他时间都泡在图书馆也不太像，Rita的好奇心压不住，还是问了。
+Lunar: 嗯？我再复习一会儿去打台球了，你等会儿要不一起来？
+
+# —— 是否与Lunar去打台球？ —— 
+? 不去 -> refuse_billiards
+? 去 -> go_billiards
+
+*refuse_billiards
+> ACTION Rita None
+> ACTION Lunar None
+Rita: 打台球吗？额？这还是算了吧。
+:说完Rita又想了想。台球对他始终带着“道听途说”的神秘——像都市传说。但期中在即，数学又是半吊子，与其好奇，不如回去多刷两套题来得实在。  
+:况且Lunar本来理科见长，平时也比Rita认真。兴许人家已经复习得七七八八了。Rita挠挠头，婉拒了邀请，折返寝室，抱紧佛脚。
+> SET play_billiards = false
+> FADE out 250
+> BG bg/dorm_desk_night.jpg
+> FADE in 250
+♪ bgm/study_focus.ogg 0.42
+> GOTO after_billiards_branch
+
+*go_billiards
+> ACTION Rita None
+> ACTION Lunar None
+Rita (happy): 啊台球吗？行吧，你好了叫我。
+:台球在Rita心里一度自带偏见：中八、烟雾缭绕、混社会——这些词像不太正经的标签紧紧贴着。台球厅、网吧、奶茶店在他读高中的那片区域被合称为“精神小伙三件套”，常被视作“不太好的地方”。
+:所以当听见Lunar要去台球厅时，他还是有点惊讶。Lunar外表文静，想象不到有这么“狂野”的爱好。  
+:但期中压抑的空气、对室友日常的好奇，很快就踩过了那道偏见的线。反正父母不在南京，只要不闹事，谁也不会知道。
+> SET play_billiards = true
+> FADE out 250
+> BG bg/campus_gate_night.jpg
+> FADE in 250
+:晚上八点，二人在校门口会合，往学校附近的“云川台球”去。  
+> FADE out 200
+> OUTFIT Rita None                   # 当前无便装素材，回退默认立绘
+> BG bg/billiards_hall.jpg
+> FADE in 200
+♪ bgm/billiards_hall_beat.ogg 0.55
+:或许Rita的偏见并非空穴来风：浓妆艳抹、穿着时髦的女助教；纹大花臂的中年大叔；耳朵上别着根烟的黄毛小伙——这些画面像一张拼贴，证明这里确实不是高中生该来的地方。  
+:Rita跟在Lunar后头，心里有点忐忑。Lunar熟门熟路地和经理打招呼，用美团买了两张券，挑了张球桌，把包往边上一放。
+Lunar: 这边我来了好几次了，环境还不错，就在商场上面，离学校也挺近。很多东南的也会来这儿打。
+:见Rita还拘着，Lunar指了指旁边一桌。果然，几张在学校见过的面孔正围着台子讨论角度。  
+:（Lunar压低了声音。）
+Lunar (think): 我跟你说，这里的助教真不孬，长得都挺不错。上次点了两个，态度也好，就是有点小贵。
+:他朝吧台努了努嘴。那儿坐着几个身材匀称、正啜着奶茶玩手机的年轻女孩。Rita这才明白，为什么这人总嚷嚷“没钱只能吃食堂”——原来钱花在这儿了。
+:厅里也有学生在打，Rita的拘谨渐渐褪下——他现在是个成年人了，不再是要被值周老师盯着的高中生，进入这种娱乐场所也“名正言顺”。  
+> SE se/pool_break.wav 0.8
+> ACTION Rita hold_cue               # 启用动作：持球杆
+> ACTION Lunar hold_cue
+:开打没多久，Lunar爆出一句：
+Lunar: 靠，这天喵都能让你蒙进的吗？这不是纯狗运啊？
+:虽说Lunar来过多次，但可能天生运动神经不在线，水准实在……一言难尽。Rita第一次上手，却频频把Lunar“斩于马下”。毫无征兆的翻袋，母球像装了GPS般自动走位，让Lunar表情逐渐皱成一团。  
+> SE se/pool_pocket.wav 0.65
+:第n局失手后，Lunar脸涨得像猪肝。
+Lunar: 不玩了不玩了，回宿舍睡觉了，明儿再说吧……
+:回程路上他几乎不说话，闷闷不乐，显然面子有点挂不住。Rita却相反，像推开了一扇新门，心里隐隐有点上头。
+:——（以上为分支2）
+> FADE out 250
+> BG bg/campus_path_night.jpg
+> FADE in 250
+> ACTION Rita None
+> ACTION Lunar None
+> OUTFIT Rita None
+> GOTO after_billiards_branch
+
+*after_billiards_branch
+# （考试后一周）
+> CLEAR_STAGE
+> FADE out 400
+> BG bg/classroom_morning.jpg
+> FADE in 400
+♪ bgm/classroom_quiet.ogg 0.4
+:（考试后一周）
+:成为大学生后的第一次“正式考核”出了结果，有人欢喜有人忧。数学课上，Rita看着那份马马虎虎的成绩，心口空了半拍。
+Rita 「（两个填空题极限正负填反了；还有一道e的无穷次方没拆开讨论。怎么就老在这种弱智地方栽……本来稳稳能上85加的。）」
+:转念一想，这分数对自己也算能接受——虽没到平均线，但七十多，对一个“不是学数学的料”、平时也没多用力的人来说，未必算差。  
+> SET midterm_math_band = "70s"
+Rita: Lunar你考了多少？
+Lunar: 一般，就90。
+Rita 「…………（靠，怎么天喵的这么高，我也是服了。）」
+:大学大课就是这样：知识不会被人一勺一勺喂到嘴边。你上课听进了多少、课后补了多少，最后就在卷面上，分毫不差地呈现。新内容不会“凭感觉”就会——会就是会，不会就是不会。  
+:上课刷的一个视频、开的一局游戏、回的一条帖子，都可能让你错过一个知识点；如果没在作业里把坑补上，就会在考试里变成分数的缺口。班里90分以上的高分三十多人，不及格的也有那么多。
+:卷子分析没什么可听的“故事”。能进东南大学，学习能力都是有的；尤其第一次期中，大家都更上心。Rita也不例外：考完大致估了分，把错题过了一遍。分析时间很快在他的发呆中流过去了。
+> FADE out 250
+> BG bg/dorm_room_noon.jpg
+> FADE in 250
+♪ bgm/campus_idle_noon.ogg 0.45
+:简单吃了午饭回宿舍，群里已热热闹闹地晒起了成绩。有人轻松、有人沮丧，节奏照旧。Rita不是太在意成绩的人，但听得多了，难免有点低落。既然定局已定，也只剩默默遗憾。  
+:他这么想着，合上消息，打开电脑，准备在B站刷会儿视频歇一口气。
+:Rita是个资深游戏宅。初高中时为了打游戏，和父母有过不少争执。父母强势，他只好“躲猫猫”。  
+Rita 「（回想起来那次搞得事情蛮大的。）」
+:初二疫情封控上网课，父母不总在家，电子产品被严格管制的Rita嗅到“机会”。他趁空下楼买了台红米备用机，悄悄打王者荣耀，最后还是被发现，免不了一顿臭骂。  
+:为了玩到游戏绞尽脑汁，是他那几年常态。甚至为了玩《皇室战争》，他以“听音乐”为由入手了带安卓系统的索尼新款Walkman（当然也被发现了）。  
+:上大学后，他有了自己的游戏本。父母不在身边，没人再管“玩不玩”的问题。大一上学期课不算多，Rita除了上课，大部分时间都在宿舍敲电脑，偶尔出去拍拍照、弹弹吉他。只是这段时间赶期中，玩的比以往少，就连投入最多的《炉石传说》这个月也没冲上传说。
+> SE se/mouse_click.wav 0.5
+> CG cg/bilibili_delta_promo.png
+:打开B站，首页几乎被“《三角洲行动》”刷了屏——腾讯新出的FPS。  
+:Rita盯着这铺天盖地的宣发，又想起前几天高中老同学的消息：
+老同学: Rita你最近有听说《三角洲》吗？我听说还蛮好玩的欸，你要不下一个玩一玩？老是打CS和瓦都快吐了……
+:当时要备考，Rita自然回绝了。  
+:现在期中基本收尾，是时候松口气了。  
+> CG None
+> HIDE 老同学
+> SE se/keyboard_typing.wav 0.6
+:他点开WeGame，下载《三角洲行动》，顺手把老同学摇进了oopz。
+> SE se/download_start.wav 0.6
+♪ bgm/night_chill.ogg 0.42
+> FADE out 700
+> BG bg/dorm_night_window_light.jpg
+> FADE in 700
+# —— 第二章 结束 ——
+
+# 第三章：深冬与期末（chapter_3_final.vns）
+
+*chapter3_final
+> SET exam_days_left = 2       # 距离期末考试的整天数
+> SET cram_progress = 0        # 复习推进度（0~100）
+> SET math_confidence = 35     # 数学自信值（0~100）
+> SET focus_drift = 0          # 注意力漂移计数（课堂摸鱼）
+> SET ai_help_used = 0         # 是否借助AI/作业帮的次数
+> SET join_delta_play = false  # 是否临时上号玩《三角洲行动》
+> CLEAR_STAGE
+> FADE out 700
+> BG bg/campus_winter_evening.jpg
+> FADE in 700
+♪ bgm/winter_city_breeze.ogg 0.52
+> SE se/wind_cold_whistle.wav 0.5
+> OUTFIT Rita outfit_winter_downcoat # 深冬：羽绒服（示例）
+
+:虽然大家口口声声说大学生活多姿多彩，但这些“彩”似乎和Rita这个游戏宅并不搭界。期中考之后，他又回到了那套熟得不能再熟的循环：打游戏、吃饭、上课、睡觉——四步一套，像循环播放的单曲。
+:一转眼，一个多月就这样被日历撕走了。衣柜最上层的“皮肤衣”被他塞到角落里，替位上场的是鼓鼓囊囊的羽绒服。南京的四季不太迁就人：秋天真是好看、好过，凉得清清爽爽；可一入冬，风像刀子，夜里走在路上，呼出来的气能在围巾上结一层潮冷。  
+:深冬的意象步步靠近：树影稀薄，路灯更亮，操场上晚跑的人少了；与此同时，期末周也悄无声息地按时抵达。
+
+> FADE out 300
+> BG bg/classroom_winter_morning.jpg
+> FADE in 300
+♪ bgm/lecture_hum.ogg 0.45
+:这一月里，数学的内容已经从极限跨进了积分。若说极限还能靠高中那点老本撑着走，积分和后头的微分方程则几乎是全新地形图。  
+:Rita每节课都去，座位没空过，可专注没法天天“打卡”：刷短视频、回消息成了上课的“背景程序”。能听进去多少，全看当天的心气儿和缘分。
+> SET focus_drift = focus_drift + 1
+> SE se/notification_blip.wav 0.5
+:平时作业也开始卡手了。单靠自己“硬拧”不太能顺利过关，有些题他得问AI或者翻“作业帮”，跟着他人的思路才摸清门路。
+> SET ai_help_used = ai_help_used + 1
+> SE se/keyboard_typing.wav 0.6
+
+:期末考试可不像期中。期中那周只有两门——日语、数学，复习范围不大，压力也不算狠。期末不同：两门“大课”都是Rita的“头疼药”——工科数学分析和C++。好在C++按班分的小课，Rita虽然谈不上学得多好，但要混个80的总评不至于太难。  
+:数学就没这么好糊弄了：从最初的极限一路考到高阶微分方程，复习量像一堵墙，后面不会、前面又忘，Rita时常觉得自己像在一场噩梦里原地打转。
+Rita 「（这考的和我学的，真是同一本书上的东西吗……）」
+Rita (tired)「（这考的和我学的，真是同一本书上的东西吗……）」
+
+> FADE out 250
+> BG bg/dorm_desk_night.jpg
+> FADE in 250
+♪ bgm/study_cram.ogg 0.42
+:他翻着试卷，却迟迟下不了笔。很多题型连最基本的切入点都没有，只能抓耳挠腮地翻书，指尖在目录和例题之间来回打滑。期末的难度不会低于期中，翻了半天，也还是像蒙着眼摸象。  
+:想从头把书过一遍，可数学书的语言干得像饼，没嚼到要害就先犯困；只能盯例题看，可这漏一点、那漏一点，知识点始终拧不成一股绳。看一道题得反复合页、找页、再看页，十几分钟过去，才恍然有个模糊的“哦”。
+> SET cram_progress = cram_progress + 6
+> SET math_confidence = math_confidence - 3
+
+:在宿舍“闭门造车”了一下午，Rita只啃下不到半套卷子。工科数分的真题足足七套，“吃透”对此刻的他而言，像天方夜谭。  
+> SET cram_progress = cram_progress + 4
+:距离考试只剩不到两整天。再不冲刺，期末占比的那50%绝不会手下留情。偏偏短板太多，越想越让人绝望。
+> SET exam_days_left = 2
+
+> FADE out 250
+> BG bg/wushu_shop_front_winter.jpg
+> FADE in 250
+♪ bgm/canteen_warm_noodles.ogg 0.5
+> SE se/crowd_chatter_indoor.wav 0.55
+:饭点到了。Rita揉了揉眼睛，套上羽绒服，往外走。  
+:冷天里，在烧腊店靠墙坐下，来一份热腾腾的双拼饭，是难得的安慰：鸭皮脆得刚好，油香沾到嘴角，米饭蓬松，连胃都跟着暖了起来。
+> SE se/plate_down.wav 0.7
+> ACTION Rita eat
+> SE se/crisp_bite.wav 0.5
+
+> SE se/phone_ping.wav 0.7
+> ACTION Rita use_phone              # 动作：看手机
+:他正咬着鸭腿，手机“叮”了一下。老同学的消息弹来：对方已经放假，《三角洲行动》新赛季将至，新活动也要开了，喊Rita上号打两把。
+> CG cg/chat_old_classmate.png
+老同学: Rita你最近要不要上号？《三角洲》新赛季了，打两把很快就下了！
+Rita: 你爹快要期末考试了，玩牛魔，晚上要复习了……考完来。
+老同学: 搞得跟真的一样，《三角洲》又无所谓的了，打两把很快就下了。
+> CG None
+> ACTION Rita None                   # 清除动作层
+
+:Rita夹在两股拉力中间：一边是堆得像山的复习量；一边是七年老交情的队友和正上劲儿的游戏。他犹豫了。
+
+# —— 是否临时上号玩《三角洲行动》？ —— 
+? 拒绝，回宿舍继续复习 -> delta_refuse
+? 玩两把再学 -> delta_play
+
+*delta_refuse
+Rita: 算了，等我考完再说，我先回去刷题。
+> SET join_delta_play = false
+> FADE out 250
+> BG bg/campus_winter_night.jpg
+> FADE in 250
+♪ bgm/winter_walk_thin.ogg 0.4
+:风从领口钻进去，倒把心里那团躁火压下去一些。他把围巾往上提了提，加快了脚步。
+> FADE out 250
+> BG bg/dorm_desk_night.jpg
+> FADE in 250
+♪ bgm/study_cram.ogg 0.46
+:回到宿舍，他把手机调成专注模式，拉出一套真题，先把积分部分通关再说。
+> SE se/paper_flip_fast.wav 0.6
+> SET cram_progress = cram_progress + 12
+> SET math_confidence = math_confidence + 5
+> GOTO chapter3_anchor
+
+*delta_play
+Rita (happy): 行吧，就两把，打完我得回去刷题。
+> SET join_delta_play = true
+> FADE out 200
+> BG bg/dorm_pc_setup.jpg
+> FADE in 200
+♪ bgm/game_lobby_loop.ogg 0.55
+> SE se/game_launch.wav 0.7
+:登录、更新、进房间，一气呵成。耳机里队友的笑闹声像一股暖流，压过了窗外的寒风。
+老同学: 我拉你了，来来来，开把爆破！
+> SE se/mouse_click.wav 0.5
+:第一把意外地顺手；第二把开始，Rita的专注被不断刷新出的击杀提示牵着走。  
+:“两把就走”的约定变得松松垮垮，时间像桌边的饮料慢慢放气。
+> SET focus_drift = focus_drift + 2
+> SET cram_progress = cram_progress + 1
+> SET math_confidence = math_confidence - 4
+> SE se/clock_tick_soft.wav 0.4
+> GOTO chapter3_anchor
+
+*chapter3_anchor
+> FADE out 600
+> BG bg/campus_winter_dorm_exterior.jpg
+> FADE in 600
+♪ bgm/night_chill.ogg 0.42
+:夜更深了，图书馆外的路灯把雪白的雾气压到地面，像给校园罩了一层薄纱。Rita抬头看了一眼楼顶的红灯，心里把接下来的两天分成了细碎的格子。
+Rita (focus)「（先把积分的换元、分部和定积分不等式理一遍；再把二重积分的极坐标换元过一下，最后留点时间给微分方程的特征根……）」
+:他深吸一口气，握紧了手里的保温杯。
+> SET cram_progress = cram_progress + 3
+
+
