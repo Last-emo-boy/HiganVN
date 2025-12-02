@@ -1,3 +1,6 @@
+*start
+> TITLE “东南物语” bg/theme.jpg
+> GOTO chapter1_opening
 
 
 # 第一章：开学（chapter_1_opening.vns）

@@ -4,14 +4,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "higanvn"
-version = "0.0.1"
+version = "0.1.0"
 description = "HiganVN: A lightweight OOP visual novel engine with a natural DSL"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
-authors = [{ name = "SEU-monogatari" }]
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "w33d" }]
 dependencies = []
-
+classifiers = [
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Operating System :: OS Independent",
+  "Topic :: Multimedia :: Graphics",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 [project.optional-dependencies]
 dev = [
   "pytest>=8.2",
