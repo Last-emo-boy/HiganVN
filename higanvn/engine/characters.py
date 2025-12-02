@@ -5,6 +5,7 @@ from pygame import Surface
 
 from higanvn.engine.animator import Animator
 from higanvn.engine.surface_utils import scale_to_height
+from higanvn.engine.image_cache import load_image
 
 LOGICAL_SIZE: Tuple[int, int] = (1280, 720)
 
@@ -57,21 +58,21 @@ class CharacterLayer:
         if outfit:
             try:
                 p1 = resolve_path(f"ch/{actor}/{outfit}/base.png")
-                base = pygame.image.load(p1).convert_alpha()
+                base = load_image(p1, convert="alpha")
             except Exception:
                 base = None
             # In strict mode, do not fallback to root if an outfit was explicitly set
             if base is None and not self._strict_mode:
                 try:
                     p2 = resolve_path(f"ch/{actor}/base.png")
-                    base = pygame.image.load(p2).convert_alpha()
+                    base = load_image(p2, convert="alpha")
                 except Exception:
                     base = None
         else:
             # No outfit specified: use root base directly
             try:
                 p = resolve_path(f"ch/{actor}/base.png")
-                base = pygame.image.load(p).convert_alpha()
+                base = load_image(p, convert="alpha")
             except Exception:
                 base = None
         if base is None:
@@ -91,21 +92,21 @@ class CharacterLayer:
         if outfit:
             try:
                 p1 = resolve_path(f"ch/{actor}/{outfit}/pose_{emotion}.png")
-                pose = pygame.image.load(p1).convert_alpha()
+                pose = load_image(p1, convert="alpha")
             except Exception:
                 pose = None
             # Only fallback to root pose when not strict
             if pose is None and not self._strict_mode:
                 try:
                     p2 = resolve_path(f"ch/{actor}/pose_{emotion}.png")
-                    pose = pygame.image.load(p2).convert_alpha()
+                    pose = load_image(p2, convert="alpha")
                 except Exception:
                     pose = None
         else:
             # No outfit specified: use root pose directly
             try:
                 p2 = resolve_path(f"ch/{actor}/pose_{emotion}.png")
-                pose = pygame.image.load(p2).convert_alpha()
+                pose = load_image(p2, convert="alpha")
             except Exception:
                 pose = None
         if pose is None:
@@ -133,21 +134,21 @@ class CharacterLayer:
         if outfit:
             try:
                 p1 = resolve_path(f"ch/{actor}/{outfit}/action_{action}.png")
-                img = pygame.image.load(p1).convert_alpha()
+                img = load_image(p1, convert="alpha")
             except Exception:
                 img = None
             # Only fallback to root action when not strict
             if img is None and not self._strict_mode:
                 try:
                     p2 = resolve_path(f"ch/{actor}/action_{action}.png")
-                    img = pygame.image.load(p2).convert_alpha()
+                    img = load_image(p2, convert="alpha")
                 except Exception:
                     img = None
         else:
             # No outfit specified: use root action directly
             try:
                 p2 = resolve_path(f"ch/{actor}/action_{action}.png")
-                img = pygame.image.load(p2).convert_alpha()
+                img = load_image(p2, convert="alpha")
             except Exception:
                 img = None
         if img is None:

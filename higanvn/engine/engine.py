@@ -4,7 +4,12 @@ from typing import Iterable, List, Optional, Dict, Any, Tuple
 
 from .renderer import IRenderer, DummyRenderer
 from .adapters.storage import ISaveStore, FileSaveStore
-from .event_bus import EventBus
+from .events import (
+    EventSystem, LegacyEventBridge,
+    EngineLoadEvent, EngineStepEvent, TextShowEvent, CommandEvent,
+    LabelEnterEvent, ChoiceSelectEvent, SaveEvent, SaveCompleteEvent,
+    LoadEvent, LoadCompleteEvent, TitleMenuEvent, GameStartEvent, GameQuitEvent
+)
 from ..script.parser import parse_script
 from ..script.model import Op, Program
 from pathlib import Path
@@ -24,6 +29,28 @@ import hashlib
 
 
 class Engine:
+    """
+    HiganVN script execution engine.
+    
+    Events:
+        The engine provides two ways to subscribe to events:
+        
+        1. New typed event system (recommended):
+           ```python
+           from higanvn.engine.events import TextShowEvent, Priority
+           
+           @engine.event_system.on(TextShowEvent, priority=Priority.HIGH)
+           def on_text(event: TextShowEvent):
+               print(f"{event.speaker}: {event.text}")
+               # event.cancel()  # Can cancel to prevent default behavior
+           ```
+        
+        2. Legacy string-based events (backward compatible):
+           ```python
+           engine.events.subscribe("text.show", lambda data: print(data))
+           ```
+    """
+    
     def __init__(self, renderer: Optional[IRenderer] = None, interactive: bool = False, strict: bool = False,
                  save_store: Optional[ISaveStore] = None) -> None:
         self.program = None
@@ -32,8 +59,10 @@ class Engine:
         self.interactive = interactive
         self.strict = strict
         self.script_path = None
-        # event bus (pub/sub)
-        self.events = EventBus()
+        # New typed event system
+        self._event_system = EventSystem(debug=False)
+        # Legacy event bus (backward compatibility wrapper)
+        self.events = LegacyEventBridge(self._event_system)
         # record of choices taken so far (indices in each choice block)
         self.choice_trace = []
         # choices to replay on load (set temporarily during reconstruction)
@@ -67,6 +96,11 @@ class Engine:
         except Exception:
             self._save_store = None
 
+    @property
+    def event_system(self) -> EventSystem:
+        """Access the typed event system for subscribing to events."""
+        return self._event_system
+
     def load(self, program: Program) -> None:
         self.program = program
         self.ip = 0
@@ -89,9 +123,9 @@ class Engine:
                 self.renderer.set_program(program)  # type: ignore[attr-defined]
         except Exception:
             pass
-        # notify listeners
+        # notify listeners (typed event)
         try:
-            self.events.emit("engine.load", count=len(program.ops) if program else 0)
+            self._event_system.emit(EngineLoadEvent(op_count=len(program.ops) if program else 0))
         except Exception:
             pass
 
@@ -216,16 +250,16 @@ class Engine:
                 setattr(self.renderer, "_engine_vars_snapshot", snap)
         except Exception:
             pass
-        # pre-op event
+        # pre-op event (typed)
         try:
-            self.events.emit("engine.before_op", ip=int(self.ip), kind=str(op.kind))
+            self._event_system.emit(EngineStepEvent(ip=int(self.ip), op_kind=str(op.kind), phase="before"))
         except Exception:
             pass
         self._execute(op)
         self.ip += 1
-        # post-op event
+        # post-op event (typed)
         try:
-            self.events.emit("engine.after_op", ip=int(self.ip))
+            self._event_system.emit(EngineStepEvent(ip=int(self.ip), op_kind="", phase="after"))
         except Exception:
             pass
         return True
@@ -273,13 +307,17 @@ class Engine:
                 self.line_ip_trace.append(int(self.ip))
             except Exception:
                 pass
+            text_content = _interp(p.get("text"))
+            # Emit typed event (can be cancelled)
+            text_event = TextShowEvent(speaker=None, text=str(text_content))
             try:
-                self.events.emit("text.show", who=None, text=str(_interp(p.get("text"))))
+                self._event_system.emit(text_event)
             except Exception:
                 pass
-            self.renderer.show_text(None, _interp(p.get("text")), None)
-            if self.interactive:
-                self.renderer.wait_for_advance()
+            if not text_event.cancelled:
+                self.renderer.show_text(None, text_content, None)
+                if self.interactive:
+                    self.renderer.wait_for_advance()
         elif k == "dialogue":
             who = p.get("actor", "?")
             alias = p.get("alias")
@@ -289,32 +327,44 @@ class Engine:
                 self.line_ip_trace.append(int(self.ip))
             except Exception:
                 pass
+            text_content = _interp(p.get("text"))
+            # Emit typed event (can be cancelled)
+            text_event = TextShowEvent(speaker=str(display), text=str(text_content), meta=dict(meta))
             try:
-                self.events.emit("text.show", who=str(display), text=str(_interp(p.get("text"))), meta=dict(meta))
+                self._event_system.emit(text_event)
             except Exception:
                 pass
-            self.renderer.show_text(display, _interp(p.get("text")), meta)
-            if self.interactive:
-                self.renderer.wait_for_advance()
+            if not text_event.cancelled:
+                self.renderer.show_text(display, text_content, meta)
+                if self.interactive:
+                    self.renderer.wait_for_advance()
         elif k == "command":
+            # Emit typed command event (can be cancelled)
+            cmd_event = CommandEvent(
+                name=str(p.get("name") or ""),
+                args=str(p.get("args") or ""),
+                line=p.get("line")
+            )
             try:
-                self.events.emit("command", name=str(p.get("name") or ""), args=str(p.get("args") or ""))
+                self._event_system.emit(cmd_event)
             except Exception:
                 pass
-            self._execute_command(p.get("name") or "", p.get("args") or "", p.get("line"))
+            if not cmd_event.cancelled:
+                self._execute_command(p.get("name") or "", p.get("args") or "", p.get("line"))
         elif k == "label":
             # no-op in headless
+            name = p.get("name")
             try:
-                name = p.get("name")
                 if name and hasattr(self.renderer, "on_enter_label"):
                     self.renderer.on_enter_label(str(name))  # type: ignore[attr-defined]
             except Exception:
                 pass
-            try:
-                if name:
-                    self.events.emit("label.enter", name=str(name))
-            except Exception:
-                pass
+            # Emit typed event
+            if name:
+                try:
+                    self._event_system.emit(LabelEnterEvent(name=str(name)))
+                except Exception:
+                    pass
         elif k == "choice":
             # gather contiguous choices
             start = self.ip
@@ -332,8 +382,13 @@ class Engine:
                 sel_idx = self.renderer.ask_choice(choices)
                 # record user choice
                 self.choice_trace.append(int(sel_idx))
+                # Emit typed event
                 try:
-                    self.events.emit("choice.select", index=int(sel_idx), text=str(choices[sel_idx][0]))
+                    self._event_system.emit(ChoiceSelectEvent(
+                        index=int(sel_idx),
+                        text=str(choices[sel_idx][0]),
+                        target=str(choices[sel_idx][1])
+                    ))
                 except Exception:
                     pass
             elif self._replay_choices is not None and choices:
@@ -607,6 +662,10 @@ class Engine:
                     bgp = parts2[0]
             except Exception:
                 pass
+            # Track if we loaded from save successfully
+            loaded_from_save = False
+            # Emit title menu open event
+            self._event_system.emit(TitleMenuEvent(action="open"))
             # Loop menu until start or quit
             while True:
                 try:
@@ -616,12 +675,26 @@ class Engine:
                         choice = self.renderer.show_title_menu(title, bgp)
                 except Exception:
                     choice = 'start'
+                # Emit selection event
+                if choice:
+                    self._event_system.emit(TitleMenuEvent(action="select", selection=str(choice)))
                 if not choice or choice == 'start':
+                    # Emit game start event
+                    self._event_system.emit(GameStartEvent(from_load=False))
                     break
                 if choice == 'load':
                     try:
                         if hasattr(self.renderer, 'open_slots_menu'):
-                            self.renderer.open_slots_menu('load')  # type: ignore[attr-defined]
+                            slot = self.renderer.open_slots_menu('load')  # type: ignore[attr-defined]
+                            # If load was successful (slot selected and load hook returned true),
+                            # the renderer's open_slots_menu returns the slot number.
+                            # Check if we need to break by testing if a valid slot was returned.
+                            if slot is not None:
+                                # Load was triggered - the load_from_slot was called by the hook
+                                # Emit game start event (from load)
+                                self._event_system.emit(GameStartEvent(from_load=True, slot=slot))
+                                loaded_from_save = True
+                                break
                     except Exception:
                         pass
                 elif choice == 'settings':
@@ -637,12 +710,18 @@ class Engine:
                     except Exception:
                         pass
                 elif choice == 'quit':
-                    try:
-                        if hasattr(self.renderer, 'quit'):
-                            self.renderer.quit()  # type: ignore[attr-defined]
-                    except Exception:
-                        pass
-                    raise SystemExit
+                    # Emit quit event
+                    quit_event = GameQuitEvent(from_title=True)
+                    self._event_system.emit(quit_event)
+                    if not quit_event.cancelled:
+                        try:
+                            if hasattr(self.renderer, 'quit'):
+                                self.renderer.quit()  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                        raise SystemExit
+            # Emit title menu close event
+            self._event_system.emit(TitleMenuEvent(action="close"))
             return
         if name.upper() == "BG":
             path = None if not parts or parts[0] == "None" else parts[0]
@@ -717,6 +796,14 @@ class Engine:
         try:
             if not self.program:
                 return False
+            # Emit save event (can be cancelled)
+            save_event = SaveEvent(slot=0, is_quicksave=True)
+            try:
+                self._event_system.emit(save_event)
+            except Exception:
+                pass
+            if save_event.cancelled:
+                return False
             # try to infer current label name from last label entered
             try:
                 cur_label = getattr(self.renderer, "_current_label", None)
@@ -761,11 +848,28 @@ class Engine:
                 sp = save_path or (self.get_save_dir() / "quick.json")
                 sp.parent.mkdir(parents=True, exist_ok=True)
                 sp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-                return True
+            # Emit save complete event
+            try:
+                self._event_system.emit(SaveCompleteEvent(slot=0, success=True))
+            except Exception:
+                pass
+            return True
         except Exception:
+            try:
+                self._event_system.emit(SaveCompleteEvent(slot=0, success=False))
+            except Exception:
+                pass
             return False
 
     def quickload(self, save_path: Path | None = None) -> bool:
+        # Emit load event (can be cancelled)
+        load_event = LoadEvent(slot=0, is_quickload=True)
+        try:
+            self._event_system.emit(load_event)
+        except Exception:
+            pass
+        if load_event.cancelled:
+            return False
         try:
             # Prefer injected save store; fall back to legacy file
             if self._save_store and save_path is None:
@@ -860,6 +964,14 @@ class Engine:
         try:
             if not self.program:
                 return False
+            # Emit save event (can be cancelled)
+            save_event = SaveEvent(slot=int(slot), is_quicksave=False)
+            try:
+                self._event_system.emit(save_event)
+            except Exception:
+                pass
+            if save_event.cancelled:
+                return False
             try:
                 cur_label = getattr(self.renderer, "_current_label", None)
             except Exception:
@@ -895,11 +1007,28 @@ class Engine:
                 sp = self._slot_json_path(int(slot), base)
                 sp.parent.mkdir(parents=True, exist_ok=True)
                 sp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-                return True
+            # Emit save complete event
+            try:
+                self._event_system.emit(SaveCompleteEvent(slot=int(slot), success=True))
+            except Exception:
+                pass
+            return True
         except Exception:
+            try:
+                self._event_system.emit(SaveCompleteEvent(slot=int(slot), success=False))
+            except Exception:
+                pass
             return False
 
     def load_from_slot(self, slot: int, base: Path | None = None) -> bool:
+        # Emit load event (can be cancelled)
+        load_event = LoadEvent(slot=int(slot), is_quickload=False)
+        try:
+            self._event_system.emit(load_event)
+        except Exception:
+            pass
+        if load_event.cancelled:
+            return False
         try:
             if self._save_store and base is None:
                 data = self._save_store.read_slot(int(slot))

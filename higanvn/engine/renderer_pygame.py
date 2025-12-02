@@ -15,7 +15,7 @@ from higanvn.engine.overlay import Overlay
 from higanvn.engine.surface_utils import scale_to_height
 from higanvn.engine.characters import CharacterLayer
 from higanvn.engine.endcard import draw_end_card
-from higanvn.engine.slots_ui import show_slots_menu
+from higanvn.engine.slots_ui_modern import show_slots_menu
 from higanvn.engine.hud_ui import draw_ui_buttons, draw_hints
 from higanvn.engine.text_panel import draw_text_panel
 from higanvn.engine.backlog_view import draw_backlog
@@ -331,7 +331,8 @@ class PygameRenderer(IRenderer):
         import time as _t
         t0 = _t.perf_counter()
         # suppress present/sleep in fast replay mode
-        if self._fast_replay_mode:
+        fast_replay = self._fast_replay_mode
+        if fast_replay:
             flip = False
             tick = False
         self.canvas.fill((0, 0, 0, 255))
@@ -347,64 +348,74 @@ class PygameRenderer(IRenderer):
         now = pygame.time.get_ticks()
         self.char_layer.render(self.canvas, self.animator, now)
         t_char = (_t.perf_counter() - t_char_begin) * 1000.0
-        # debug overlays (character bounds/centers)
-        try:
-            t_dbg_begin = _t.perf_counter()
-            self._draw_debug_overlays()
-            t_dbg = (_t.perf_counter() - t_dbg_begin) * 1000.0
-        except Exception:
+        # Skip UI/debug overlays during fast replay for speed
+        if fast_replay:
             t_dbg = 0.0
-        # overlays
-        t_ui_begin = _t.perf_counter()
-        if not self._ui_hidden:
-            self._overlay.draw_error_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
-            self._overlay.draw_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
-        cur = self.textbox.current()
-        if cur and not self._ui_hidden:
-            name, text = cur.name, cur.text
-            if (isinstance(name, str) and name.strip().startswith("结局")) or (
-                (name is None) and isinstance(text, str) and text.strip().startswith("结局")
-            ):
-                draw_end_card(self.canvas, text, self._hint_font, self.font, self._font_path, self._font_size)
-            else:
-                # ui config for textbox and text effects
-                ui_cfg = (self._config.get("ui") if isinstance(self._config, dict) else {}) or {}
-                self._reveal_instant, self._line_start_ts, self._line_full_ts = draw_text_panel(
-                    self.canvas,
-                    self.font,
-                    self._hint_font,
-                    name,
-                    text,
-                    getattr(cur, 'effect', None),
-                    self._typing_enabled,
-                    self._fast_forward,
-                    self._line_start_ts,
-                    self._line_full_ts,
-                    self._reveal_instant,
-                    panel_alpha=int(ui_cfg.get("textbox_opacity", 160)),
-                    text_outline=bool(ui_cfg.get("text_outline", False)),
-                    text_shadow=bool(ui_cfg.get("text_shadow", True)),
-                    text_shadow_offset=tuple(ui_cfg.get("text_shadow_offset", [1, 1])),
-                )
-        if (not self._ui_hidden) and self.show_backlog and self.textbox.history:
-            draw_backlog(self.canvas, self.font, self.textbox.history, self.textbox.view_idx)
-        self._ui_rects = draw_ui_buttons(self.canvas, self.font, self._canvas_mouse_pos) if not self._ui_hidden else {}
-        t_ui = (_t.perf_counter() - t_ui_begin) * 1000.0
-        # Optional debug HUD
-        t_hud_begin = _t.perf_counter()
-        if not self._ui_hidden:
+            t_ui = 0.0
+            t_hud = 0.0
+        else:
+            # debug overlays (character bounds/centers)
             try:
-                self._debug.draw(self.canvas, self._hint_font)
+                t_dbg_begin = _t.perf_counter()
+                self._draw_debug_overlays()
+                t_dbg = (_t.perf_counter() - t_dbg_begin) * 1000.0
             except Exception:
-                pass
-            draw_hints(self.canvas, self._hint_font, self._auto_mode)
-        t_hud = (_t.perf_counter() - t_hud_begin) * 1000.0
+                t_dbg = 0.0
+            # overlays
+            t_ui_begin = _t.perf_counter()
+            if not self._ui_hidden:
+                self._overlay.draw_error_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
+                self._overlay.draw_banner(self.canvas, self._error_font, now, LOGICAL_SIZE)
+            cur = self.textbox.current()
+            if cur and not self._ui_hidden:
+                name, text = cur.name, cur.text
+                if (isinstance(name, str) and name.strip().startswith("结局")) or (
+                    (name is None) and isinstance(text, str) and text.strip().startswith("结局")
+                ):
+                    draw_end_card(self.canvas, text, self._hint_font, self.font, self._font_path, self._font_size)
+                else:
+                    # ui config for textbox and text effects
+                    ui_cfg = (self._config.get("ui") if isinstance(self._config, dict) else {}) or {}
+                    self._reveal_instant, self._line_start_ts, self._line_full_ts = draw_text_panel(
+                        self.canvas,
+                        self.font,
+                        self._hint_font,
+                        name,
+                        text,
+                        getattr(cur, 'effect', None),
+                        self._typing_enabled,
+                        self._fast_forward,
+                        self._line_start_ts,
+                        self._line_full_ts,
+                        self._reveal_instant,
+                        panel_alpha=int(ui_cfg.get("textbox_opacity", 160)),
+                        text_outline=bool(ui_cfg.get("text_outline", False)),
+                        text_shadow=bool(ui_cfg.get("text_shadow", True)),
+                        text_shadow_offset=tuple(ui_cfg.get("text_shadow_offset", [1, 1])),
+                    )
+            if (not self._ui_hidden) and self.show_backlog and self.textbox.history:
+                draw_backlog(self.canvas, self.font, self.textbox.history, self.textbox.view_idx)
+            self._ui_rects = draw_ui_buttons(self.canvas, self.font, self._canvas_mouse_pos) if not self._ui_hidden else {}
+            t_ui = (_t.perf_counter() - t_ui_begin) * 1000.0
+            # Optional debug HUD
+            t_hud_begin = _t.perf_counter()
+            if not self._ui_hidden:
+                try:
+                    self._debug.draw(self.canvas, self._hint_font)
+                except Exception:
+                    pass
+                draw_hints(self.canvas, self._hint_font, self._auto_mode)
+            t_hud = (_t.perf_counter() - t_hud_begin) * 1000.0
 
         t_scale_begin = _t.perf_counter()
         win_w, win_h = self.screen.get_size()
         scale = min(win_w / LOGICAL_SIZE[0], win_h / LOGICAL_SIZE[1])
         dst_w, dst_h = int(LOGICAL_SIZE[0] * scale), int(LOGICAL_SIZE[1] * scale)
-        scaled = pygame.transform.smoothscale(self.canvas, (dst_w, dst_h))
+        # Use scale() instead of smoothscale() during fast replay for speed
+        if fast_replay:
+            scaled = pygame.transform.scale(self.canvas, (dst_w, dst_h))
+        else:
+            scaled = pygame.transform.smoothscale(self.canvas, (dst_w, dst_h))
         x = (win_w - dst_w) // 2
         y = (win_h - dst_h) // 2
         self._last_transform = (scale, x, y, dst_w, dst_h)
@@ -427,8 +438,9 @@ class PygameRenderer(IRenderer):
                 self._frame_time_ms = 0
         else:
             t_tick = 0.0
-        # store last frame after presenting
-        self._last_frame = self.canvas.copy()
+        # Only copy canvas for thumbnails when not in fast replay (expensive operation)
+        if not fast_replay:
+            self._last_frame = self.canvas.copy()
         # update perf counters
         t_total = (_t.perf_counter() - t0) * 1000.0
         stages = {
