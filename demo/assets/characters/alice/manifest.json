@@ -1,0 +1,226 @@
+{
+  "id": "alice",
+  "name": "爱丽丝",
+  "version": "1.0.0",
+  "canvas_width": 1024,
+  "canvas_height": 1536,
+  "default_pose": "normal",
+  "default_expression": "normal",
+  "default_outfit": "school",
+  
+  "layers": {
+    "base_normal": {
+      "id": "base_normal",
+      "layer_type": "BASE",
+      "file": "base/normal.png",
+      "z_order": 0
+    },
+    "base_cross_arms": {
+      "id": "base_cross_arms",
+      "layer_type": "BASE",
+      "file": "base/cross_arms.png",
+      "z_order": 0
+    },
+    
+    "outfit_school_body": {
+      "id": "outfit_school_body",
+      "layer_type": "OUTFIT",
+      "file": "outfit/school/body.png",
+      "z_order": 50
+    },
+    "outfit_school_ribbon": {
+      "id": "outfit_school_ribbon",
+      "layer_type": "ACCESSORY",
+      "file": "outfit/school/ribbon.png",
+      "z_order": 55
+    },
+    "outfit_casual_body": {
+      "id": "outfit_casual_body",
+      "layer_type": "OUTFIT",
+      "file": "outfit/casual/body.png",
+      "z_order": 50
+    },
+    
+    "face_normal": {
+      "id": "face_normal",
+      "layer_type": "FACE_COMPOSITE",
+      "file": "face/normal.png",
+      "z_order": 100
+    },
+    "face_happy": {
+      "id": "face_happy",
+      "layer_type": "FACE_COMPOSITE",
+      "file": "face/happy.png",
+      "z_order": 100
+    },
+    "face_sad": {
+      "id": "face_sad",
+      "layer_type": "FACE_COMPOSITE",
+      "file": "face/sad.png",
+      "z_order": 100
+    },
+    "face_angry": {
+      "id": "face_angry",
+      "layer_type": "FACE_COMPOSITE",
+      "file": "face/angry.png",
+      "z_order": 100
+    },
+    "face_surprise": {
+      "id": "face_surprise",
+      "layer_type": "FACE_COMPOSITE",
+      "file": "face/surprise.png",
+      "z_order": 100
+    },
+    "face_shy": {
+      "id": "face_shy",
+      "layer_type": "FACE_COMPOSITE",
+      "file": "face/shy.png",
+      "z_order": 100
+    },
+    
+    "eyes_normal": {
+      "id": "eyes_normal",
+      "layer_type": "EYES",
+      "file": "face/parts/eyes_normal.png",
+      "z_order": 102
+    },
+    "eyes_closed": {
+      "id": "eyes_closed",
+      "layer_type": "EYES",
+      "file": "face/parts/eyes_closed.png",
+      "z_order": 102
+    },
+    "mouth_smile": {
+      "id": "mouth_smile",
+      "layer_type": "MOUTH",
+      "file": "face/parts/mouth_smile.png",
+      "z_order": 101
+    },
+    "eyebrows_normal": {
+      "id": "eyebrows_normal",
+      "layer_type": "EYEBROWS",
+      "file": "face/parts/brows_normal.png",
+      "z_order": 103
+    },
+    "eyebrows_angry": {
+      "id": "eyebrows_angry",
+      "layer_type": "EYEBROWS",
+      "file": "face/parts/brows_angry.png",
+      "z_order": 103
+    },
+    
+    "effect_blush": {
+      "id": "effect_blush",
+      "layer_type": "EFFECT",
+      "file": "effects/blush.png",
+      "z_order": 150,
+      "opacity": 0.7
+    },
+    "effect_sweat": {
+      "id": "effect_sweat",
+      "layer_type": "EFFECT",
+      "file": "effects/sweat.png",
+      "z_order": 151
+    }
+  },
+  
+  "poses": {
+    "normal": {
+      "id": "normal",
+      "base_layer": "base_normal",
+      "face_offset": [256, 80],
+      "compatible_outfits": ["school", "casual"]
+    },
+    "cross_arms": {
+      "id": "cross_arms",
+      "base_layer": "base_cross_arms",
+      "face_offset": [260, 85],
+      "compatible_outfits": ["school", "casual"]
+    }
+  },
+  
+  "expressions": {
+    "normal": {
+      "id": "normal",
+      "composite_layer": "face_normal"
+    },
+    "happy": {
+      "id": "happy",
+      "composite_layer": "face_happy"
+    },
+    "sad": {
+      "id": "sad",
+      "composite_layer": "face_sad"
+    },
+    "angry": {
+      "id": "angry",
+      "composite_layer": "face_angry"
+    },
+    "surprise": {
+      "id": "surprise",
+      "composite_layer": "face_surprise"
+    },
+    "shy": {
+      "id": "shy",
+      "composite_layer": "face_shy",
+      "effects": ["effect_blush"]
+    },
+    "custom_smile": {
+      "id": "custom_smile",
+      "eyes_layer": "eyes_normal",
+      "mouth_layer": "mouth_smile",
+      "eyebrows_layer": "eyebrows_normal"
+    }
+  },
+  
+  "outfits": {
+    "school": {
+      "id": "school",
+      "name": "制服",
+      "layers": [
+        {
+          "id": "outfit_school_body",
+          "layer_type": "OUTFIT",
+          "file": "outfit/school/body.png",
+          "z_order": 50
+        },
+        {
+          "id": "outfit_school_ribbon",
+          "layer_type": "ACCESSORY",
+          "file": "outfit/school/ribbon.png",
+          "z_order": 55
+        }
+      ],
+      "compatible_poses": ["normal", "cross_arms"]
+    },
+    "casual": {
+      "id": "casual",
+      "name": "便服",
+      "layers": [
+        {
+          "id": "outfit_casual_body",
+          "layer_type": "OUTFIT",
+          "file": "outfit/casual/body.png",
+          "z_order": 50
+        }
+      ],
+      "compatible_poses": ["normal", "cross_arms"]
+    }
+  },
+  
+  "effects": {
+    "blush": {
+      "id": "effect_blush",
+      "layer_type": "EFFECT",
+      "file": "effects/blush.png",
+      "z_order": 150,
+      "opacity": 0.7
+    },
+    "sweat": {
+      "id": "effect_sweat",
+      "layer_type": "EFFECT",
+      "file": "effects/sweat.png",
+      "z_order": 151
+    }
+  }
+}

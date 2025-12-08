@@ -1,0 +1,7 @@
+{
+  "id": "bob",
+  "name": "Bob",
+  "expressions": ["normal", "happy", "sad", "angry", "surprised", "think"],
+  "outfits": ["casual", "school"],
+  "default_expression": "normal"
+}

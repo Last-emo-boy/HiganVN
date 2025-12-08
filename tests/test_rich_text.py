@@ -555,3 +555,106 @@ class TestEdgeCases:
         assert "你好世界" in segments[0].text
         assert "🎮" in segments[1].text
         assert "ゲーム" in segments[2].text
+
+
+class TestTextPanelRichTextIntegration:
+    """Test rich text integration with text_panel module."""
+    
+    def test_wrap_rich_text_import(self):
+        """Test that wrap_rich_text can be imported."""
+        from higanvn.engine.text_panel import wrap_rich_text
+        assert callable(wrap_rich_text)
+    
+    def test_render_rich_text_line_import(self):
+        """Test that render_rich_text_line can be imported."""
+        from higanvn.engine.text_panel import render_rich_text_line
+        assert callable(render_rich_text_line)
+    
+    def test_wrap_rich_text_basic(self):
+        """Test basic rich text wrapping."""
+        from higanvn.engine.text_panel import wrap_rich_text
+        import pygame
+        pygame.font.init()
+        
+        font = pygame.font.SysFont("arial", 24)
+        text = "[color=red]Hello[/color] World"
+        
+        lines = wrap_rich_text(text, font, 500)
+        assert len(lines) >= 1
+        
+        # 验证所有段落加起来是完整文本
+        all_text = ""
+        for line in lines:
+            for seg in line:
+                all_text += seg.text
+        assert all_text == "Hello World"
+    
+    def test_wrap_rich_text_long_text(self):
+        """Test wrapping long rich text with spaces."""
+        from higanvn.engine.text_panel import wrap_rich_text
+        import pygame
+        pygame.font.init()
+        
+        font = pygame.font.SysFont("arial", 24)
+        # 使用带空格的英文，确保能换行
+        text = "[b]This is a very long long long long long text that should wrap to multiple lines.[/b]"
+        
+        lines = wrap_rich_text(text, font, 200)
+        assert len(lines) >= 2  # 应该换行
+    
+    def test_wrap_rich_text_newline(self):
+        """Test explicit newline in rich text."""
+        from higanvn.engine.text_panel import wrap_rich_text
+        import pygame
+        pygame.font.init()
+        
+        font = pygame.font.SysFont("arial", 24)
+        text = "Line1\nLine2"
+        
+        lines = wrap_rich_text(text, font, 500)
+        assert len(lines) == 2
+    
+    def test_draw_text_panel_signature(self):
+        """Test that draw_text_panel has rich_text_enabled parameter."""
+        from higanvn.engine.text_panel import draw_text_panel
+        import inspect
+        
+        sig = inspect.signature(draw_text_panel)
+        params = list(sig.parameters.keys())
+        
+        assert 'rich_text_enabled' in params
+        assert 'font_getter' in params
+        assert 'default_font_size' in params
+    
+    def test_wrap_rich_text_empty(self):
+        """Test wrapping empty text."""
+        from higanvn.engine.text_panel import wrap_rich_text
+        import pygame
+        pygame.font.init()
+        
+        font = pygame.font.SysFont("arial", 24)
+        lines = wrap_rich_text("", font, 500)
+        assert len(lines) == 0
+    
+    def test_wrap_rich_text_preserves_style(self):
+        """Test that wrapping preserves text styles."""
+        from higanvn.engine.text_panel import wrap_rich_text
+        from higanvn.engine.rich_text import EffectType
+        import pygame
+        pygame.font.init()
+        
+        font = pygame.font.SysFont("arial", 24)
+        text = "[b]Bold[/b] [i]Italic[/i] [shake]Shake[/shake]"
+        
+        lines = wrap_rich_text(text, font, 500)
+        assert len(lines) >= 1
+        
+        # 验证样式保留
+        all_segments = [seg for line in lines for seg in line]
+        bold_segs = [s for s in all_segments if s.style.bold and "Bold" in s.text]
+        italic_segs = [s for s in all_segments if s.style.italic and "Italic" in s.text]
+        shake_segs = [s for s in all_segments if s.style.effect == EffectType.SHAKE and "Shake" in s.text]
+        
+        assert len(bold_segs) >= 1
+        assert len(italic_segs) >= 1
+        assert len(shake_segs) >= 1

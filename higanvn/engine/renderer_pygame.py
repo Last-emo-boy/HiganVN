@@ -16,7 +16,7 @@ from higanvn.engine.surface_utils import scale_to_height
 from higanvn.engine.characters import CharacterLayer
 from higanvn.engine.endcard import draw_end_card
 from higanvn.engine.slots_ui_modern import show_slots_menu
-from higanvn.engine.hud_ui import draw_ui_buttons, draw_hints
+from higanvn.engine.hud_ui import draw_ui_buttons, draw_hints, ModernHUD
 from higanvn.engine.text_panel import draw_text_panel
 from higanvn.engine.backlog_view import draw_backlog
 from higanvn.engine.choices_ui import ask_choice as ask_choice_ui
@@ -90,6 +90,19 @@ class PygameRenderer(IRenderer):
         self._font_size = font_size
         # Prefer a good CJK font if available
         self.font = init_font(font_path, font_size, self._asset_ns)
+        
+        # Initialize Modern HUD
+        self.hud = ModernHUD(
+            font=self.font,
+            hint_font=self.font, # Use same font for now
+            on_auto_toggle=lambda: self._toggle_auto(),
+            on_skip_toggle=lambda: self._toggle_skip(),
+            on_backlog=lambda: self._toggle_backlog(),
+            on_save=lambda: self._show_slots_menu("save"),
+            on_load=lambda: self._show_slots_menu("load"),
+            on_config=lambda: self._open_settings()
+        )
+        
         self._textbox_owned = True
         self.textbox = Textbox()
 
@@ -327,6 +340,32 @@ class PygameRenderer(IRenderer):
             if event.type == pygame.QUIT:
                 raise SystemExit
 
+    def _toggle_auto(self):
+        self._auto_mode = not self._auto_mode
+        self.hud.auto_mode = self._auto_mode
+        if self._auto_mode:
+            self.show_banner("自动模式开启")
+        else:
+            self.show_banner("自动模式关闭")
+
+    def _toggle_skip(self):
+        self._fast_forward = not self._fast_forward
+        self.hud.skip_mode = self._fast_forward
+        if self._fast_forward:
+            self.show_banner("快进模式开启")
+        else:
+            self.show_banner("快进模式关闭")
+
+    def _toggle_backlog(self):
+        self.show_backlog = not self.show_backlog
+
+    def _open_settings(self):
+        self.open_settings_menu()
+
+    def handle_event(self, event: pygame.event.Event) -> Optional[str]:
+        """Handle UI events from input loop."""
+        return self.hud.handle_event(event)
+
     def _render(self, flip: bool = True, tick: bool = True) -> None:
         import time as _t
         t0 = _t.perf_counter()
@@ -395,7 +434,19 @@ class PygameRenderer(IRenderer):
                     )
             if (not self._ui_hidden) and self.show_backlog and self.textbox.history:
                 draw_backlog(self.canvas, self.font, self.textbox.history, self.textbox.view_idx)
-            self._ui_rects = draw_ui_buttons(self.canvas, self.font, self._canvas_mouse_pos) if not self._ui_hidden else {}
+            
+            # Modern HUD
+            if not self._ui_hidden:
+                # Sync state
+                self.hud.auto_mode = self._auto_mode
+                self.hud.skip_mode = self._fast_forward
+                self.hud.voice_playing = bool(self._voice_channel and self._voice_channel.get_busy())
+                
+                self.hud.update(self._canvas_mouse_pos(), self._frame_time_ms)
+                self.hud.draw(self.canvas)
+            
+            self._ui_rects = {} # Legacy UI rects cleared
+            
             t_ui = (_t.perf_counter() - t_ui_begin) * 1000.0
             # Optional debug HUD
             t_hud_begin = _t.perf_counter()
@@ -404,7 +455,7 @@ class PygameRenderer(IRenderer):
                     self._debug.draw(self.canvas, self._hint_font)
                 except Exception:
                     pass
-                draw_hints(self.canvas, self._hint_font, self._auto_mode)
+                # draw_hints replaced by ModernHUD status indicator
             t_hud = (_t.perf_counter() - t_hud_begin) * 1000.0
 
         t_scale_begin = _t.perf_counter()

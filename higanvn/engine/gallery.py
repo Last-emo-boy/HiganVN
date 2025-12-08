@@ -1,3 +1,7 @@
+"""
+Gallery - 现代视觉小说风格图鉴系统
+支持差分循环、缩略图列表、锁定模式
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,8 +11,443 @@ import pygame
 from pygame import Surface
 from higanvn.engine.gallery_io import read_thumb, write_thumb, is_unlocked
 
+from higanvn.engine.ui_components import UITheme, UIButton
+
 LOGICAL_SIZE: Tuple[int, int] = (1280, 720)
 TABS = ["CG", "BGM"]
+
+
+class GalleryItem:
+    """图鉴条目"""
+    def __init__(self, file_path: str, thumbnail: Surface, category: str):
+        self.file_path = file_path
+        self.thumbnail = thumbnail
+        self.category = category
+        self.unlocked = True  # 简化版，实际应该检查解锁状态
+        self.variants: List[str] = []  # 差分图片列表
+        self.current_variant = 0
+
+    def next_variant(self) -> None:
+        """切换到下一个差分"""
+        if self.variants:
+            self.current_variant = (self.current_variant + 1) % len(self.variants)
+
+    def get_current_image_path(self) -> str:
+        """获取当前显示的图片路径"""
+        if self.variants and self.current_variant > 0:
+            return self.variants[self.current_variant - 1]
+        return self.file_path
+
+
+class ModernGallery:
+    """现代化图鉴界面"""
+    def __init__(
+        self,
+        font: pygame.font.Font,
+        theme: Optional[UITheme] = None,
+        resolve_path: Optional[Callable[[str, list[str]], str]] = None,
+        get_save_dir: Optional[Callable[[], Path]] = None,
+    ):
+        self.font = font
+        self.theme = theme or UITheme()
+        self.resolve_path = resolve_path
+        self.get_save_dir = get_save_dir
+
+        # 数据
+        self.cg_items: List[GalleryItem] = []
+        self.bgm_files: List[str] = []
+        self.categories: List[str] = ["全部"]
+        self.current_category = 0
+
+        # 状态
+        self.current_tab = 0  # 0: CG, 1: BGM
+        self.selected_index = 0
+        self.view_start = 0
+        self.preview_image: Optional[Surface] = None
+        self.thumbnail_locked = False  # 缩略图常显模式
+        self.playing_bgm: Optional[int] = None  # 当前播放的BGM索引
+
+        # 布局
+        self.cols = 4
+        self.pad = 18
+        self.cell_w, self.cell_h = 280, 160
+        self.grid_x = (LOGICAL_SIZE[0] - (self.cols * self.cell_w + (self.cols - 1) * self.pad)) // 2
+        self.grid_y = 120
+
+        # UI组件
+        self.category_buttons: List[UIButton] = []
+        self.variant_buttons: List[UIButton] = []
+        self.lock_button: Optional[UIButton] = None
+
+        self._load_content()
+
+    def _load_content(self) -> None:
+        """加载图鉴内容"""
+        if not self.resolve_path:
+            return
+
+        # 加载CG
+        self.cg_items = self._scan_cg_items()
+        cg_cats = {item.category for item in self.cg_items}
+        self.categories = ["全部"] + sorted(cg_cats)
+
+        # 加载BGM
+        self.bgm_files = self._scan_bgm_files()
+
+    def _scan_cg_items(self) -> List[GalleryItem]:
+        """扫描CG条目"""
+        items = []
+        if not self.resolve_path:
+            return items
+            
+        for folder in ["assets/cg", "cg"]:
+            p = Path(folder)
+            if p.exists() and p.is_dir():
+                for f in sorted(p.glob("**/*")):
+                    if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+                        try:
+                            # 加载缩略图
+                            thumb = read_thumb(str(f), self.get_save_dir)
+                            if thumb is None:
+                                img = pygame.image.load(self.resolve_path(str(f), ["cg"]))
+                                try:
+                                    img = img.convert_alpha()
+                                except Exception:
+                                    img = img.convert()
+                                thumb = self._create_thumb(img, (self.cell_w, self.cell_h))
+                                # 保存缩略图
+                                try:
+                                    write_thumb(thumb, str(f), self.get_save_dir)
+                                except Exception:
+                                    pass
+
+                            category = self._get_category_for_file(str(f))
+                            item = GalleryItem(str(f), thumb, category)
+                            items.append(item)
+                        except Exception:
+                            continue
+        return items
+
+    def _scan_bgm_files(self) -> List[str]:
+        """扫描BGM文件"""
+        files = []
+        for folder in ["assets/bgm", "bgm"]:
+            p = Path(folder)
+            if p.exists() and p.is_dir():
+                for f in sorted(p.glob("**/*")):
+                    if f.suffix.lower() in (".mp3", ".ogg", ".wav"):
+                        files.append(str(f))
+        return files
+
+    def _get_category_for_file(self, fp: str) -> str:
+        """获取文件分类"""
+        p = Path(fp)
+        try_roots = [Path("assets/cg"), Path("cg")]
+        for root in try_roots:
+            try:
+                rel = p.relative_to(root)
+                parts = rel.parts
+                if len(parts) > 1:
+                    return parts[0]
+                else:
+                    return "未分类"
+            except Exception:
+                continue
+        return p.parent.name or "未分类"
+
+    def _create_thumb(self, img: Surface, size: Tuple[int, int]) -> Surface:
+        """创建缩略图"""
+        w, h = img.get_size()
+        tw, th = size
+        ratio = min(tw / w, th / h)
+        nw = max(1, int(w * ratio))
+        nh = max(1, int(h * ratio))
+        return pygame.transform.smoothscale(img, (nw, nh))
+
+    def _get_filtered_items(self) -> List[GalleryItem]:
+        """获取当前分类的条目"""
+        if self.current_category == 0:  # 全部
+            return self.cg_items
+        else:
+            cat_name = self.categories[self.current_category]
+            return [item for item in self.cg_items if item.category == cat_name]
+
+    def _ensure_preview(self, item: GalleryItem) -> Optional[Surface]:
+        """确保预览图片已加载"""
+        if not self.resolve_path:
+            return None
+            
+        try:
+            img_path = item.get_current_image_path()
+            img = pygame.image.load(self.resolve_path(img_path, ["cg"]))
+            try:
+                img = img.convert_alpha()
+            except Exception:
+                img = img.convert()
+
+            # 适应屏幕大小
+            ratio = min(LOGICAL_SIZE[0] / img.get_width(), LOGICAL_SIZE[1] / img.get_height()) * 0.8
+            nw = max(1, int(img.get_width() * ratio))
+            nh = max(1, int(img.get_height() * ratio))
+            self.preview_image = pygame.transform.smoothscale(img, (nw, nh))
+            return self.preview_image
+        except Exception:
+            self.preview_image = None
+            return None
+
+    def update(self, mouse_pos: Optional[Tuple[int, int]], dt: float) -> None:
+        """更新界面"""
+        self._layout_ui()
+        for button in self.category_buttons + self.variant_buttons:
+            button.update(mouse_pos, dt)
+        if self.lock_button:
+            self.lock_button.update(mouse_pos, dt)
+
+    def _layout_ui(self) -> None:
+        """布局UI组件"""
+        theme = self.theme
+
+        # 分类按钮
+        self.category_buttons.clear()
+        button_y = 60
+        for i, cat in enumerate(self.categories):
+            button_rect = pygame.Rect(50 + i * 120, button_y, 100, 32)
+            button = UIButton(button_rect, cat, self.font, theme)
+            self.category_buttons.append(button)
+
+        # 锁定按钮
+        lock_rect = pygame.Rect(LOGICAL_SIZE[0] - 150, button_y, 120, 32)
+        lock_text = "缩略图常显" if self.thumbnail_locked else "缩略图隐藏"
+        self.lock_button = UIButton(lock_rect, lock_text, self.font, theme)
+
+        # 差分切换按钮（如果有选中项）
+        self.variant_buttons.clear()
+        filtered_items = self._get_filtered_items()
+        if filtered_items and self.selected_index < len(filtered_items):
+            item = filtered_items[self.selected_index]
+            if item.variants:
+                variant_rect = pygame.Rect(LOGICAL_SIZE[0] - 200, LOGICAL_SIZE[1] - 100, 80, 32)
+                variant_button = UIButton(variant_rect, "差分", self.font, theme)
+                self.variant_buttons.append(variant_button)
+
+    def draw(self, canvas: Surface) -> None:
+        """绘制图鉴界面"""
+        theme = self.theme
+
+        # 背景遮罩
+        overlay = pygame.Surface(LOGICAL_SIZE, pygame.SRCALPHA)
+        overlay.fill((*theme.neutral_bg[:3], 180))
+        canvas.blit(overlay, (0, 0))
+
+        # 标题
+        tab_names = ["CG图鉴", "BGM鉴赏"]
+        title = self.font.render(tab_names[self.current_tab], True, theme.text_primary)
+        title_rect = title.get_rect(centerx=LOGICAL_SIZE[0] // 2, y=20)
+        canvas.blit(title, title_rect)
+
+        # 标签页切换
+        tab_y = 50
+        for i, tab_name in enumerate(tab_names):
+            tab_rect = pygame.Rect(50 + i * 150, tab_y, 120, 36)
+            is_active = i == self.current_tab
+
+            if is_active:
+                pygame.draw.rect(
+                    canvas, theme.accent, tab_rect,
+                    border_radius=theme.button_corner_radius
+                )
+                text_color = theme.text_primary
+            else:
+                pygame.draw.rect(
+                    canvas, (*theme.neutral_border, 150), tab_rect,
+                    border_radius=theme.button_corner_radius
+                )
+                text_color = theme.text_secondary
+
+            tab_text = self.font.render(tab_name, True, text_color)
+            tab_text_rect = tab_text.get_rect(center=tab_rect.center)
+            canvas.blit(tab_text, tab_text_rect)
+
+        if self.current_tab == 0:  # CG标签页
+            self._draw_cg_gallery(canvas)
+        else:  # BGM标签页
+            self._draw_bgm_gallery(canvas)
+
+        # 绘制UI按钮
+        for button in self.category_buttons + self.variant_buttons:
+            button.draw(canvas)
+        if self.lock_button:
+            self.lock_button.draw(canvas)
+
+    def _draw_cg_gallery(self, canvas: Surface) -> None:
+        """绘制CG图鉴"""
+        filtered_items = self._get_filtered_items()
+        if not filtered_items:
+            return
+
+        # 绘制网格
+        for i in range(self.view_start, min(self.view_start + self.cols * 3, len(filtered_items))):
+            item = filtered_items[i]
+            grid_idx = i - self.view_start
+
+            row = grid_idx // self.cols
+            col = grid_idx % self.cols
+
+            x = self.grid_x + col * (self.cell_w + self.pad)
+            y = self.grid_y + row * (self.cell_h + self.pad)
+
+            cell_rect = pygame.Rect(x, y, self.cell_w, self.cell_h)
+
+            # 选中状态
+            if i == self.selected_index:
+                pygame.draw.rect(
+                    canvas, self.theme.accent, cell_rect.inflate(4, 4),
+                    width=3, border_radius=self.theme.button_corner_radius
+                )
+
+            # 缩略图背景
+            pygame.draw.rect(
+                canvas, (*self.theme.neutral_bg[:3], 200), cell_rect,
+                border_radius=self.theme.button_corner_radius
+            )
+
+            # 缩略图
+            if item.thumbnail:
+                thumb_rect = item.thumbnail.get_rect(center=cell_rect.center)
+                canvas.blit(item.thumbnail, thumb_rect)
+
+            # 锁定遮罩（未解锁）
+            if not item.unlocked:
+                lock_overlay = pygame.Surface((self.cell_w, self.cell_h), pygame.SRCALPHA)
+                lock_overlay.fill((0, 0, 0, 180))
+                canvas.blit(lock_overlay, cell_rect.topleft)
+
+                lock_text = self.font.render("未解锁", True, self.theme.text_secondary)
+                lock_rect = lock_text.get_rect(center=cell_rect.center)
+                canvas.blit(lock_text, lock_rect)
+
+        # 预览图片（如果有选中项且未锁定缩略图模式）
+        if not self.thumbnail_locked and self.selected_index < len(filtered_items):
+            item = filtered_items[self.selected_index]
+            if item.unlocked:
+                preview = self._ensure_preview(item)
+                if preview:
+                    preview_rect = preview.get_rect(
+                        center=(LOGICAL_SIZE[0] // 2, LOGICAL_SIZE[1] // 2)
+                    )
+                    canvas.blit(preview, preview_rect)
+
+    def _draw_bgm_gallery(self, canvas: Surface) -> None:
+        """绘制BGM鉴赏"""
+        # 简化的BGM列表
+        y = self.grid_y
+        for i, bgm_file in enumerate(self.bgm_files):
+            # BGM条目背景
+            entry_rect = pygame.Rect(self.grid_x, y, 600, 40)
+
+            if i == self.selected_index:
+                pygame.draw.rect(
+                    canvas, (*self.theme.accent, 100), entry_rect,
+                    border_radius=self.theme.button_corner_radius
+                )
+
+            # 文件名
+            filename = Path(bgm_file).name
+            text_surf = self.font.render(filename, True, self.theme.text_primary)
+            canvas.blit(text_surf, (entry_rect.x + 20, entry_rect.y + 10))
+
+            # 播放状态指示器
+            if hasattr(self, 'playing_bgm') and self.playing_bgm == i:
+                play_indicator = self.font.render("▶", True, self.theme.accent)
+                canvas.blit(play_indicator, (entry_rect.right - 40, entry_rect.y + 10))
+
+            y += 50
+
+    def handle_event(self, event: pygame.event.Event) -> Optional[str]:
+        """处理事件"""
+        # 标签页切换
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            tab_y = 50
+            for i in range(len(TABS)):
+                tab_rect = pygame.Rect(50 + i * 150, tab_y, 120, 36)
+                if tab_rect.collidepoint(event.pos):
+                    self.current_tab = i
+                    self.selected_index = 0
+                    self.view_start = 0
+                    return "tab_switch"
+
+        # 分类按钮
+        for i, button in enumerate(self.category_buttons):
+            if button.handle_event(event):
+                self.current_category = i
+                self.selected_index = 0
+                self.view_start = 0
+                return "category_switch"
+
+        # 锁定按钮
+        if self.lock_button and self.lock_button.handle_event(event):
+            self.thumbnail_locked = not self.thumbnail_locked
+            return "lock_toggle"
+
+        # 差分按钮
+        for button in self.variant_buttons:
+            if button.handle_event(event):
+                filtered_items = self._get_filtered_items()
+                if self.selected_index < len(filtered_items):
+                    item = filtered_items[self.selected_index]
+                    item.next_variant()
+                    self._ensure_preview(item)  # 重新加载预览
+                return "variant_switch"
+
+        # CG网格点击
+        if self.current_tab == 0 and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            filtered_items = self._get_filtered_items()
+            for i in range(self.view_start, min(self.view_start + self.cols * 3, len(filtered_items))):
+                grid_idx = i - self.view_start
+                row = grid_idx // self.cols
+                col = grid_idx % self.cols
+
+                x = self.grid_x + col * (self.cell_w + self.pad)
+                y = self.grid_y + row * (self.cell_h + self.pad)
+                cell_rect = pygame.Rect(x, y, self.cell_w, self.cell_h)
+
+                if cell_rect.collidepoint(event.pos):
+                    self.selected_index = i
+                    if not self.thumbnail_locked:
+                        self._ensure_preview(filtered_items[i])
+                    return "item_select"
+
+        # BGM列表点击
+        elif self.current_tab == 1 and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            y = self.grid_y
+            for i, bgm_file in enumerate(self.bgm_files):
+                entry_rect = pygame.Rect(self.grid_x, y, 600, 40)
+                if entry_rect.collidepoint(event.pos):
+                    self.selected_index = i
+                    # 这里可以触发BGM播放
+                    return "bgm_select"
+                y += 50
+
+        # 键盘导航
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                filtered_items = self._get_filtered_items() if self.current_tab == 0 else self.bgm_files
+                self.selected_index = max(0, self.selected_index - 1)
+                return "navigate"
+            elif event.key == pygame.K_RIGHT:
+                filtered_items = self._get_filtered_items() if self.current_tab == 0 else self.bgm_files
+                self.selected_index = min(len(filtered_items) - 1, self.selected_index + 1)
+                return "navigate"
+            elif event.key == pygame.K_UP:
+                filtered_items = self._get_filtered_items() if self.current_tab == 0 else self.bgm_files
+                self.selected_index = max(0, self.selected_index - self.cols)
+                return "navigate"
+            elif event.key == pygame.K_DOWN:
+                filtered_items = self._get_filtered_items() if self.current_tab == 0 else self.bgm_files
+                self.selected_index = min(len(filtered_items) - 1, self.selected_index + self.cols)
+                return "navigate"
+
+        return None
 
 
 def _scan_cg_paths(resolve: Callable[[str, list[str]], str]) -> List[str]:

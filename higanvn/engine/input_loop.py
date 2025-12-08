@@ -205,6 +205,13 @@ def wait_for_advance(renderer) -> None:
                             renderer._fast_forward = False
                             waiting = False
             if event.type == pygame.MOUSEBUTTONDOWN:
+                # Handle HUD events (including right click for quick menu)
+                if hasattr(renderer, 'handle_event'):
+                    action = renderer.handle_event(event)
+                    if action:
+                        renderer._render()
+                        continue
+
                 # Only left-click (button 1) should reveal/advance; ignore wheel buttons (4/5)
                 if getattr(event, 'button', None) != 1:
                     # let MOUSEWHEEL handler manage scrolling; do nothing here for other buttons

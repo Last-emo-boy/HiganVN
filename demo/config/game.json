@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "title": "HiganVN Demo",
+    "title_en": "HiganVN Demo",
+    "version": "1.0.0",
+    "author": "HiganVN Team",
+    "developer": "HiganVN Team",
+    "description": "Official demo showcasing HiganVN engine features",
+    "width": 1280,
+    "height": 720,
+    "fullscreen": false,
+    "resizable": true,
+    "main_script": "scripts/main.vns",
+    "start_label": "start",
+    "enable_gallery": true,
+    "enable_backlog": true,
+    "enable_skip": true,
+    "enable_auto": true,
+    "enable_save": true,
+    "save_slots": 20,
+    "quicksave_slots": 3,
+    "autosave_enabled": true
+  },
+  "actors": {
+    "narrator": {
+      "id": "narrator",
+      "name": "",
+      "is_narrator": true,
+      "is_hidden": true
+    },
+    "alice": {
+      "id": "alice",
+      "name": "Alice",
+      "name_color": "#FFD700",
+      "default_expression": "normal",
+      "default_outfit": "casual",
+      "is_protagonist": true
+    },
+    "bob": {
+      "id": "bob", 
+      "name": "Bob",
+      "name_color": "#87CEEB",
+      "default_expression": "normal",
+      "default_outfit": "casual"
+    },
+    "system": {
+      "id": "system",
+      "name": "System",
+      "name_color": "#00FF00",
+      "is_hidden": true
+    }
+  },
+  "gallery": {
+    "enabled": true,
+    "columns": 4,
+    "thumbnail_size": [200, 150],
+    "categories": [
+      {
+        "id": "chapter1",
+        "name": "Chapter 1",
+        "description": "CGs from Chapter 1",
+        "items": []
+      }
+    ]
+  },
+  "ui_config": {
+    "textbox_style": "modern",
+    "name_box_style": "gradient"
+  },
+  "audio_config": {
+    "bgm_volume": 0.7,
+    "se_volume": 0.8,
+    "voice_volume": 1.0
+  }
+}

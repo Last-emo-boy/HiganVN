@@ -14,43 +14,43 @@ import math
 # ============================================================================
 
 class Theme:
-    """主题配色方案"""
-    # 主色调 - 优雅蓝紫渐变
-    PRIMARY = (100, 140, 220)
-    PRIMARY_DARK = (60, 90, 160)
-    PRIMARY_LIGHT = (140, 180, 255)
+    """主题配色方案 - 现代深色玻璃风"""
+    # 主色调 - 深色玻璃
+    PRIMARY = (40, 45, 60)
+    PRIMARY_DARK = (30, 35, 50)
+    PRIMARY_LIGHT = (60, 70, 90)
     
-    # 强调色 - 金色/琥珀色
-    ACCENT = (255, 200, 100)
-    ACCENT_GLOW = (255, 220, 150)
+    # 强调色 - 樱花粉
+    ACCENT = (255, 140, 160)
+    ACCENT_GLOW = (255, 180, 200)
     
     # 角色名颜色
     NAME_COLOR = (255, 235, 180)
     NAME_GLOW = (255, 200, 100)
     
     # 文字颜色
-    TEXT_PRIMARY = (255, 255, 255)
-    TEXT_SECONDARY = (200, 200, 210)
-    TEXT_DIM = (150, 150, 160)
+    TEXT_PRIMARY = (240, 240, 245)
+    TEXT_SECONDARY = (180, 185, 195)
+    TEXT_DIM = (120, 125, 135)
     
     # 面板背景
-    PANEL_BG = (15, 20, 35)
-    PANEL_BG_ALPHA = 220
-    PANEL_BORDER = (80, 100, 140)
-    PANEL_BORDER_GLOW = (100, 140, 200)
+    PANEL_BG = (10, 12, 18)
+    PANEL_BG_ALPHA = 230
+    PANEL_BORDER = (100, 110, 130)
+    PANEL_BORDER_GLOW = (255, 140, 160)
     
     # 按钮
-    BUTTON_BG = (40, 50, 70)
-    BUTTON_HOVER = (60, 80, 120)
-    BUTTON_ACTIVE = (80, 110, 160)
-    BUTTON_BORDER = (100, 120, 160)
+    BUTTON_BG = (40, 45, 60)
+    BUTTON_HOVER = (60, 70, 90)
+    BUTTON_ACTIVE = (30, 35, 50)
+    BUTTON_BORDER = (100, 110, 130)
     
     # 标题菜单
-    TITLE_GRADIENT_TOP = (20, 30, 50)
-    TITLE_GRADIENT_BOTTOM = (10, 15, 30)
-    MENU_ITEM_BG = (30, 40, 60)
-    MENU_ITEM_HOVER = (50, 70, 110)
-    MENU_ITEM_GLOW = (100, 150, 220)
+    TITLE_GRADIENT_TOP = (20, 25, 35)
+    TITLE_GRADIENT_BOTTOM = (10, 12, 18)
+    MENU_ITEM_BG = (40, 45, 60)
+    MENU_ITEM_HOVER = (60, 70, 90)
+    MENU_ITEM_GLOW = (255, 140, 160)
 
 
 # ============================================================================

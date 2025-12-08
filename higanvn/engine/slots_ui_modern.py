@@ -20,10 +20,19 @@ import math
 import pygame
 from pygame import Surface
 
-from .ui_theme import (
-    Theme, draw_gradient_rect, draw_rounded_panel, 
-    draw_text_with_glow, draw_glow_border
+from .ui_components import (
+    ui_theme as Theme, draw_gradient_rect, draw_rounded_rect, 
+    draw_glow_effect
 )
+
+# 兼容性别名
+draw_rounded_panel = lambda surf, rect, color, alpha=255: draw_rounded_rect(surf, rect, color, radius=16, alpha=alpha)
+draw_glow_border = lambda surf, rect, color, alpha=255: draw_glow_effect(surf, rect, color, intensity=alpha/255.0)
+
+def draw_text_with_glow(surface, font, text, pos, color, glow_color):
+    # 简单实现
+    text_surf = font.render(text, True, color)
+    surface.blit(text_surf, pos)
 
 if TYPE_CHECKING:
     from .save_manager import SaveManager
@@ -348,7 +357,7 @@ def show_slots_menu(
             hints.append("ESC 返回")
             hint_text = "  |  ".join(hints)
         
-        hint_surf = hint_font.render(hint_text, True, Theme.TEXT_DIM)
+        hint_surf = hint_font.render(hint_text, True, Theme.text_dim)
         canvas.blit(hint_surf, ((LOGICAL_SIZE[0] - hint_surf.get_width()) // 2, LOGICAL_SIZE[1] - 50))
         
         # 缩放到窗口
@@ -358,13 +367,13 @@ def show_slots_menu(
 
 def _draw_title(canvas: Surface, font: pygame.font.Font, text: str, margin_y: int) -> None:
     """绘制标题"""
-    title_surf = font.render(text, True, Theme.TEXT_PRIMARY)
+    title_surf = font.render(text, True, Theme.text_primary)
     title_x = (LOGICAL_SIZE[0] - title_surf.get_width()) // 2
     title_y = margin_y // 2 - title_surf.get_height() // 2
     
     # 发光效果
     for i in range(3):
-        glow = font.render(text, True, Theme.PRIMARY_LIGHT)
+        glow = font.render(text, True, Theme.primary_light)
         glow.set_alpha(30 - i * 10)
         canvas.blit(glow, (title_x - i, title_y - i))
         canvas.blit(glow, (title_x + i, title_y + i))
@@ -403,14 +412,14 @@ def _draw_slot_card(
     # 卡片背景色
     if card.is_empty:
         bg_color = (30, 35, 50, 200)
-        border_color = Theme.PANEL_BORDER
+        border_color = Theme.neutral_border
     else:
         bg_color = (40, 50, 70, 220)
-        border_color = Theme.PRIMARY
+        border_color = Theme.primary
     
     # 选中/悬停时的边框颜色
     if select_t > 0.3 or hover_t > 0.3:
-        border_color = Theme.ACCENT
+        border_color = Theme.accent
     
     # 发光效果
     if anim_t > 0.1:
@@ -419,7 +428,7 @@ def _draw_slot_card(
         glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
         
         # 渐变发光
-        glow_color = Theme.ACCENT if select_t > 0.3 else Theme.PRIMARY_LIGHT
+        glow_color = Theme.accent if select_t > 0.3 else Theme.primary_light
         pygame.draw.rect(
             glow_surf, (*glow_color, glow_alpha), 
             (0, 0, glow_rect.width, glow_rect.height), 
@@ -430,21 +439,21 @@ def _draw_slot_card(
     # 卡片主体
     draw_rounded_panel(
         canvas, draw_rect, bg_color,
-        border_color=border_color,
-        border_width=2 if anim_t < 0.3 else 3,
-        border_radius=10
+        alpha=220
     )
+    # 边框
+    pygame.draw.rect(canvas, border_color, draw_rect, width=2 if anim_t < 0.3 else 3, border_radius=10)
     
     # 槽位号
     slot_text = f"{card.slot_id:02d}"
-    slot_color = Theme.ACCENT if not card.is_empty else Theme.TEXT_DIM
+    slot_color = Theme.accent if not card.is_empty else Theme.text_dim
     slot_surf = font.render(slot_text, True, slot_color)
     canvas.blit(slot_surf, (draw_rect.x + 10, draw_rect.y + 8))
     
     if card.is_empty:
         # 空槽位
         empty_text = "— 空 —"
-        empty_surf = font.render(empty_text, True, Theme.TEXT_DIM)
+        empty_surf = font.render(empty_text, True, Theme.text_dim)
         canvas.blit(empty_surf, (
             draw_rect.centerx - empty_surf.get_width() // 2,
             draw_rect.centery - empty_surf.get_height() // 2
@@ -465,14 +474,14 @@ def _draw_slot_card(
                 pygame.draw.rect(canvas, (50, 50, 60), thumb_rect)
         else:
             pygame.draw.rect(canvas, (50, 50, 60), thumb_rect)
-            no_img = font.render("无预览", True, Theme.TEXT_DIM)
+            no_img = font.render("无预览", True, Theme.text_dim)
             canvas.blit(no_img, (
                 thumb_rect.centerx - no_img.get_width() // 2,
                 thumb_rect.centery - no_img.get_height() // 2
             ))
         
         # 缩略图边框
-        pygame.draw.rect(canvas, Theme.PANEL_BORDER, thumb_rect, 1, border_radius=4)
+        pygame.draw.rect(canvas, Theme.neutral_border, thumb_rect, 1, border_radius=4)
         
         # 元数据
         if card.meta:
@@ -480,7 +489,7 @@ def _draw_slot_card(
             ts = card.meta.get("ts", "")
             if ts:
                 ts_short = str(ts)[:16] if len(str(ts)) > 16 else str(ts)
-                ts_surf = font.render(ts_short, True, Theme.TEXT_SECONDARY)
+                ts_surf = font.render(ts_short, True, Theme.text_secondary)
                 canvas.blit(ts_surf, (draw_rect.right - ts_surf.get_width() - 10, draw_rect.y + 8))
             
             # 标签名
@@ -493,7 +502,7 @@ def _draw_slot_card(
                 if label_str != str(label):
                     label_str = label_str[:-2] + "…"
                 
-                label_surf = font.render(label_str, True, Theme.PRIMARY_LIGHT)
+                label_surf = font.render(label_str, True, Theme.primary_light)
                 canvas.blit(label_surf, (draw_rect.x + 10, draw_rect.bottom - 24))
     
     # 删除确认覆盖层

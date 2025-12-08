@@ -1,0 +1,168 @@
+# HiganVN Demo
+# 官方示例项目 - 展示引擎功能
+# Version: 1.0.0
+
+*start
+> TITLE "HiganVN Demo"
+> GOTO main_menu
+
+# ============================================================================
+# 主菜单
+# ============================================================================
+
+*main_menu
+> CLEAR_STAGE
+> FADE out 300
+> BG title_bg
+> FADE in 500
+♪ bgm/title_theme 0.6
+
+? 开始游戏 -> demo_start
+? 富文本演示 -> demo_rich_text
+? 特效演示 -> demo_effects
+? 选项演示 -> demo_choices
+? 退出 -> game_end
+
+# ============================================================================
+# 游戏开始
+# ============================================================================
+
+*demo_start
+> FADE out 500
+> BG classroom
+> FADE in 500
+♪ bgm/school_day 0.5
+
+: 这是 HiganVN 视觉小说引擎的官方演示。
+
+Alice (happy)「欢迎来到 HiganVN Demo！」
+
+Alice「我是 Alice，今天由我来为你介绍这个引擎的功能。」
+
+Bob (normal)「我是 Bob，Alice 的助手。」
+
+Alice「让我们开始吧！」
+
+> GOTO demo_rich_text
+
+# ============================================================================
+# 富文本演示
+# ============================================================================
+
+*demo_rich_text
+> CLEAR_STAGE
+> BG classroom
+♪ bgm/school_day 0.5
+
+Alice「首先，让我展示一下富文本功能。」
+
+: 这是普通文本。
+
+: 这是[color=#FF0000]红色文本[/color]和[color=#00FF00]绿色文本[/color]。
+
+: 这是[b]粗体[/b]和[i]斜体[/i]文本。
+
+: 这是[size=1.5]大号文本[/size]和[size=0.8]小号文本[/size]。
+
+: 这是[shake]抖动效果[/shake]文本。
+
+: 这是[wave]波浪效果[/wave]文本。
+
+: 这是[rainbow]彩虹效果[/rainbow]文本。
+
+: 这是[u]下划线[/u]和[s]删除线[/s]。
+
+: 可以[b][color=#FFD700]组合[/color][/b]多种效果！
+
+Alice (happy)「怎么样，很酷吧？」
+
+? 继续 -> demo_effects
+? 返回菜单 -> main_menu
+
+# ============================================================================
+# 特效演示
+# ============================================================================
+
+*demo_effects
+> CLEAR_STAGE
+> FADE out 300
+> BG park_day
+> FADE in 300
+♪ bgm/peaceful 0.5
+
+Alice「现在让我展示一些过渡效果。」
+
+: 淡入淡出效果...
+> FADE out 500
+> BG classroom
+> FADE in 500
+
+: 场景切换完成！
+
+Alice「还有更多效果...」
+
+> SE se/whoosh 0.8
+
+Alice (surprised)「听到了吗？那是音效！」
+
+: 让我们试试屏幕震动...
+> SHAKE 5 300
+
+Alice (happy)「这些效果可以让游戏更生动！」
+
+? 继续 -> demo_choices
+? 返回菜单 -> main_menu
+
+# ============================================================================
+# 选项演示
+# ============================================================================
+
+*demo_choices
+> CLEAR_STAGE
+> BG cafe
+♪ bgm/cafe_jazz 0.4
+
+Alice「现在来演示选项系统。」
+
+Alice「你喜欢什么类型的游戏？」
+
+? 视觉小说 -> choice_vn
+? 角色扮演 -> choice_rpg
+? 动作游戏 -> choice_action
+
+*choice_vn
+Alice (happy)「太好了！这正是 HiganVN 擅长的领域！」
+> GOTO demo_end
+
+*choice_rpg
+Alice「RPG 也很棒！不过 HiganVN 更适合讲故事。」
+> GOTO demo_end
+
+*choice_action
+Alice (think)「动作游戏很刺激，但视觉小说可以讲述更深刻的故事。」
+> GOTO demo_end
+
+# ============================================================================
+# 演示结束
+# ============================================================================
+
+*demo_end
+> FADE out 300
+> BG park_sunset
+> FADE in 500
+♪ bgm/ending 0.5
+
+Alice「这就是 HiganVN 的基本功能演示。」
+
+Bob「还有更多高级功能等待你去探索！」
+
+Alice (happy)「感谢你的观看！」
+
+: [b][color=#FFD700]演示结束[/color][/b]
+
+? 返回菜单 -> main_menu
+? 退出 -> game_end
+
+*game_end
+> FADE out 1000
+> END
